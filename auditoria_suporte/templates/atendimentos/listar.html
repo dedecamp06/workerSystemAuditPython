@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio, paginacao as nav_paginas %}
+{% block titulo %}Atendimentos | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Atendimentos{% endblock %}
+{% block pagina_subtitulo %}{{ paginacao.total }} registro(s) encontrado(s){% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  <div class="cartao-cabecalho">
+    <form class="filtros" method="get">
+      <select name="cliente_id">
+        <option value="">Todos os clientes</option>
+        {% for cliente in clientes %}
+          <option value="{{ cliente.id }}" {{ 'selected' if cliente_id == cliente.id }}>{{ cliente.nome }}</option>
+        {% endfor %}
+      </select>
+      <select name="situacao">
+        <option value="todos" {{ 'selected' if situacao == 'todos' }}>Todos</option>
+        <option value="pendentes" {{ 'selected' if situacao == 'pendentes' }}>Pendentes de auditoria</option>
+        <option value="auditados" {{ 'selected' if situacao == 'auditados' }}>Ja auditados</option>
+      </select>
+      <input type="search" name="busca" value="{{ busca }}" placeholder="Protocolo ou atendente">
+      <button class="btn btn-contorno" type="submit">Filtrar</button>
+      <a class="btn btn-texto" href="{{ url_for('atendimentos.listar') }}">Limpar</a>
+    </form>
+    <div class="acoes-linha">
+      <a class="btn btn-contorno" href="{{ url_for('atendimentos.importar') }}">Importar CSV/TXT</a>
+      <a class="btn btn-primario" href="{{ url_for('atendimentos.novo') }}">+ Novo atendimento</a>
+    </div>
+  </div>
+
+  {% if atendimentos %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Protocolo</th><th>Cliente</th><th>Atendente</th><th>Data</th>
+            <th>Canal</th><th>Origem</th><th>Auditoria</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for atendimento in atendimentos %}
+            <tr>
+              <td><a href="{{ url_for('atendimentos.detalhe', atendimento_id=atendimento.id) }}"><code>{{ atendimento.protocolo }}</code></a></td>
+              <td>{{ atendimento.cliente.nome }}</td>
+              <td>{{ atendimento.atendente }}</td>
+              <td>{{ atendimento.data_atendimento|data_br }}</td>
+              <td>{{ atendimento.canal or '-' }}</td>
+              <td><small>{{ atendimento.origem }}</small></td>
+              <td>
+                {% set auditoria = atendimento.auditoria_atual %}
+                {% if auditoria %}
+                  <span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span>
+                  <small>{{ auditoria.pontuacao_formatada }}</small>
+                {% else %}
+                  <span class="badge badge-neutro">Pendente</span>
+                {% endif %}
+              </td>
+              <td class="direita acoes-linha">
+                {% if atendimento.auditoria_atual %}
+                  <a class="btn btn-mini btn-contorno"
+                     href="{{ url_for('resultados.detalhe', auditoria_id=atendimento.auditoria_atual.id) }}">Resultado</a>
+                {% else %}
+                  <a class="btn btn-mini btn-primario"
+                     href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id) }}">Auditar</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {{ nav_paginas(paginacao, 'atendimentos.listar', {'cliente_id': cliente_id or '', 'situacao': situacao, 'busca': busca}) }}
+  {% else %}
+    {{ vazio('Nenhum atendimento encontrado.', url_for('atendimentos.novo'), 'Cadastrar atendimento') }}
+  {% endif %}
+</div>
+{% endblock %}

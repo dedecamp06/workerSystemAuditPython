@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ sistema_nome }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="marca">
+      <span class="marca-icone">AA</span>
+      <div class="marca-texto">
+        <strong>Auditoria</strong>
+        <small>Atendimentos de suporte</small>
+      </div>
+    </div>
+
+    <nav class="menu">
+      <span class="menu-secao">Principal</span>
+      <a href="{{ url_for('dashboard.index') }}"
+         class="{{ 'ativo' if request.blueprint == 'dashboard' }}">
+        <span class="ico">&#9636;</span> Dashboard
+      </a>
+
+      <span class="menu-secao">Cadastros</span>
+      <a href="{{ url_for('clientes.listar') }}"
+         class="{{ 'ativo' if request.blueprint == 'clientes' }}">
+        <span class="ico">&#9783;</span> Clientes
+      </a>
+      <a href="{{ url_for('atendimentos.listar') }}"
+         class="{{ 'ativo' if request.blueprint == 'atendimentos' }}">
+        <span class="ico">&#9993;</span> Atendimentos
+      </a>
+      <a href="{{ url_for('criterios.listar') }}"
+         class="{{ 'ativo' if request.blueprint == 'criterios' }}">
+        <span class="ico">&#9745;</span> Criterios
+      </a>
+
+      <span class="menu-secao">Auditoria</span>
+      <a href="{{ url_for('auditorias.selecionar') }}"
+         class="{{ 'ativo' if request.blueprint == 'auditorias' }}">
+        <span class="ico">&#9881;</span> Executar auditoria
+      </a>
+      <a href="{{ url_for('resultados.listar') }}"
+         class="{{ 'ativo' if request.blueprint == 'resultados' }}">
+        <span class="ico">&#9878;</span> Resultados
+      </a>
+    </nav>
+
+    <div class="sidebar-rodape">
+      <a href="{{ url_for('atendimentos.importar') }}" class="btn btn-contorno btn-bloco">
+        Importar atendimentos
+      </a>
+    </div>
+  </aside>
+
+  <div class="conteudo-geral">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu">&#9776;</button>
+      <div class="topbar-titulo">
+        <h1>{% block pagina_titulo %}{{ sistema_nome }}{% endblock %}</h1>
+        <p>{% block pagina_subtitulo %}{% endblock %}</p>
+      </div>
+      <div class="topbar-usuario">
+        {% if usuario_logado %}
+          <div class="usuario-info">
+            <strong>{{ usuario_logado.nome }}</strong>
+            <small>{{ usuario_logado.rotulo_perfil }}</small>
+          </div>
+          <a class="btn btn-mini btn-contorno" href="{{ url_for('auth.perfil') }}">Perfil</a>
+          <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-mini btn-perigo" type="submit">Sair</button>
+          </form>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="area-principal">
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% if mensagens %}
+          <div class="alertas">
+            {% for categoria, mensagem in mensagens %}
+              <div class="alerta alerta-{{ categoria }}">
+                <span>{{ mensagem }}</span>
+                <button type="button" class="fechar-alerta" aria-label="Fechar">&times;</button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block conteudo %}{% endblock %}
+    </main>
+
+    <footer class="rodape">
+      {{ sistema_nome }} &middot; dados persistidos localmente em SQLite
+    </footer>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

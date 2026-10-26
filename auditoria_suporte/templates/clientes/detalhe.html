@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio %}
+{% block titulo %}{{ cliente.nome }} | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}{{ cliente.nome }}{% endblock %}
+{% block pagina_subtitulo %}Identificador {{ cliente.codigo }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra-acoes">
+  <a class="btn btn-contorno" href="{{ url_for('clientes.listar') }}">&larr; Clientes</a>
+  <a class="btn btn-contorno" href="{{ url_for('clientes.editar', cliente_id=cliente.id) }}">Editar</a>
+  <a class="btn btn-contorno" href="{{ url_for('criterios.listar', cliente_id=cliente.id) }}">Criterios</a>
+  <a class="btn btn-contorno" href="{{ url_for('atendimentos.listar', cliente_id=cliente.id) }}">Atendimentos</a>
+  <a class="btn btn-contorno" href="{{ url_for('resultados.listar', cliente_id=cliente.id) }}">Resultados</a>
+  <a class="btn btn-primario" href="{{ url_for('atendimentos.novo', cliente_id=cliente.id) }}">+ Atendimento</a>
+
+  {% if cliente.ativo %}
+    <form method="post" action="{{ url_for('clientes.excluir', cliente_id=cliente.id) }}" class="inline"
+          data-confirmar="Confirma a exclusao do cliente {{ cliente.nome }}? Se houver registros vinculados, ele sera apenas desativado.">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-perigo" type="submit">Excluir / desativar</button>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('clientes.reativar', cliente_id=cliente.id) }}" class="inline">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-sucesso" type="submit">Reativar cliente</button>
+    </form>
+  {% endif %}
+</div>
+
+{% if not cliente.ativo %}
+  <div class="alerta alerta-aviso">
+    <span>Este cliente esta <strong>inativo</strong>. Novos atendimentos e auditorias estao bloqueados,
+    mas o historico permanece disponivel para consulta.</span>
+  </div>
+{% endif %}
+
+<section class="cards">
+  <div class="card card-azul">
+    <span class="card-rotulo">Atendimentos</span>
+    <strong class="card-valor">{{ total_atendimentos }}</strong>
+    <span class="card-detalhe">{{ pendentes }} pendente(s) de auditoria</span>
+  </div>
+  <div class="card card-indigo">
+    <span class="card-rotulo">Criterios ativos</span>
+    <strong class="card-valor">{{ total_criterios }}</strong>
+    <span class="card-detalhe">exclusivos deste cliente</span>
+  </div>
+  <div class="card card-verde">
+    <span class="card-rotulo">Auditorias</span>
+    <strong class="card-valor">{{ total_auditorias }}</strong>
+    <span class="card-detalhe">nota minima {{ cliente.nota_minima|numero(1) }}%</span>
+  </div>
+  <div class="card card-laranja">
+    <span class="card-rotulo">Arquivos armazenados</span>
+    <strong class="card-valor">{{ arquivos_armazenados }}</strong>
+    <span class="card-detalhe">em auditorias/{{ cliente.pasta or '-' }}</span>
+  </div>
+</section>
+
+<div class="grade-2">
+  <div class="cartao">
+    <h2 class="cartao-titulo">Dados do cliente</h2>
+    <dl class="lista-dados">
+      <dt>Nome</dt><dd>{{ cliente.nome }}</dd>
+      <dt>Identificador</dt><dd><code>{{ cliente.codigo }}</code></dd>
+      <dt>Contato</dt><dd>{{ cliente.contato or '-' }}</dd>
+      <dt>E-mail</dt><dd>{{ cliente.email or '-' }}</dd>
+      <dt>Nota minima</dt><dd>{{ cliente.nota_minima|numero(1) }}%</dd>
+      <dt>Pasta de resultados</dt><dd><code>auditorias/{{ cliente.pasta or '-' }}</code></dd>
+      <dt>Cadastrado em</dt><dd>{{ cliente.criado_em|datahora_br }}</dd>
+      <dt>Descricao</dt><dd>{{ cliente.descricao or '-' }}</dd>
+    </dl>
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Ultimas auditorias deste cliente</h2>
+    {% if ultimas %}
+      <table class="tabela compacta">
+        <thead><tr><th>Atendimento</th><th>Data</th><th>Pontuacao</th><th>Situacao</th></tr></thead>
+        <tbody>
+          {% for auditoria in ultimas %}
+            <tr>
+              <td><a href="{{ url_for('resultados.detalhe', auditoria_id=auditoria.id) }}">{{ auditoria.atendimento.protocolo }}</a></td>
+              <td>{{ auditoria.executada_em|datahora_br }}</td>
+              <td><strong>{{ auditoria.pontuacao_formatada }}</strong></td>
+              <td><span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      {{ vazio('Nenhuma auditoria realizada para este cliente.', url_for('auditorias.selecionar', cliente_id=cliente.id), 'Auditar atendimentos') }}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

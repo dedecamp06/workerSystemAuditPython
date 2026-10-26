@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio %}
+{% block titulo %}Criterios | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Criterios de auditoria{% endblock %}
+{% block pagina_subtitulo %}Cada criterio pertence a um unico cliente e so e usado nas auditorias dele{% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  <div class="cartao-cabecalho">
+    <form class="filtros" method="get">
+      <select name="cliente_id">
+        <option value="">Todos os clientes</option>
+        {% for cliente in clientes %}
+          <option value="{{ cliente.id }}" {{ 'selected' if cliente_id == cliente.id }}>{{ cliente.nome }}</option>
+        {% endfor %}
+      </select>
+      <label class="checkbox-inline">
+        <input type="checkbox" name="ativos" value="1" {{ 'checked' if somente_ativos }}>
+        Somente ativos
+      </label>
+      <button class="btn btn-contorno" type="submit">Filtrar</button>
+      <a class="btn btn-texto" href="{{ url_for('criterios.listar') }}">Limpar</a>
+    </form>
+    <a class="btn btn-primario" href="{{ url_for('criterios.novo', cliente_id=cliente_id) }}">+ Novo criterio</a>
+  </div>
+
+  {% if criterios %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Cliente</th><th>Criterio</th><th>Peso</th><th>Obrigatorio</th>
+            <th>Regras configuradas</th><th>Situacao</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for criterio in criterios %}
+            <tr>
+              <td>
+                <a href="{{ url_for('clientes.detalhe', cliente_id=criterio.cliente_id) }}">{{ criterio.cliente.nome }}</a>
+              </td>
+              <td>
+                <strong>{{ criterio.nome }}</strong>
+                {% if criterio.descricao %}<br><small>{{ criterio.descricao }}</small>{% endif %}
+              </td>
+              <td>{{ criterio.peso|numero(2) }}</td>
+              <td>
+                {% if criterio.obrigatorio %}
+                  <span class="badge badge-alerta">Obrigatorio</span>
+                {% else %}
+                  <span class="badge badge-neutro">Opcional</span>
+                {% endif %}
+              </td>
+              <td class="celula-regras">
+                {% if criterio.lista_esperados %}
+                  <div><b>Esperados ({{ criterio.minimo_termos }} min.):</b> {{ criterio.lista_esperados|join(', ') }}</div>
+                {% else %}
+                  <div class="texto-erro">Sem termos esperados: sera inconclusivo.</div>
+                {% endif %}
+                {% if criterio.lista_proibidos %}
+                  <div><b>Proibidos:</b> {{ criterio.lista_proibidos|join(', ') }}</div>
+                {% endif %}
+                {% if criterio.lista_contexto %}
+                  <div><b>Contexto:</b> {{ criterio.lista_contexto|join(', ') }}
+                    {% if criterio.permite_nao_aplicavel %}<small>(aceita nao aplicavel)</small>{% endif %}
+                  </div>
+                {% endif %}
+              </td>
+              <td>
+                {% if criterio.ativo %}
+                  <span class="badge badge-aprovado">Ativo</span>
+                {% else %}
+                  <span class="badge badge-neutro">Inativo</span>
+                {% endif %}
+                {% if criterio.utilizado_em_auditorias %}
+                  <br><small class="texto-apagado">usado em auditorias</small>
+                {% endif %}
+              </td>
+              <td class="direita acoes-linha">
+                <a class="btn btn-mini btn-contorno" href="{{ url_for('criterios.editar', criterio_id=criterio.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('criterios.alternar', criterio_id=criterio.id) }}" class="inline">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-mini btn-contorno" type="submit">
+                    {{ 'Desativar' if criterio.ativo else 'Ativar' }}
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('criterios.excluir', criterio_id=criterio.id) }}" class="inline"
+                      data-confirmar="Confirma a exclusao do criterio {{ criterio.nome }}? Se ele ja foi usado em auditorias, sera apenas desativado.">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-mini btn-perigo" type="submit">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ vazio('Nenhum criterio cadastrado para o filtro selecionado.', url_for('criterios.novo', cliente_id=cliente_id), 'Cadastrar criterio') }}
+  {% endif %}
+</div>
+{% endblock %}

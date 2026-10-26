@@ -1,0 +1,35 @@
+{% macro erros_formulario(erros) %}
+  {% if erros %}
+    <div class="alerta alerta-erro bloco-erros">
+      <strong>Corrija os itens abaixo:</strong>
+      <ul>
+        {% for erro in erros %}<li>{{ erro }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro paginacao(pag, endpoint, args={}) %}
+  {% if pag and pag.pages > 1 %}
+    <nav class="paginacao">
+      {% if pag.has_prev %}
+        <a href="{{ url_for(endpoint, pagina=pag.prev_num, **args) }}">&laquo; Anterior</a>
+      {% else %}
+        <span class="desabilitado">&laquo; Anterior</span>
+      {% endif %}
+      <span class="paginacao-info">Pagina {{ pag.page }} de {{ pag.pages }} ({{ pag.total }} registros)</span>
+      {% if pag.has_next %}
+        <a href="{{ url_for(endpoint, pagina=pag.next_num, **args) }}">Proxima &raquo;</a>
+      {% else %}
+        <span class="desabilitado">Proxima &raquo;</span>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endmacro %}
+
+{% macro vazio(mensagem, link=None, texto_link=None) %}
+  <div class="vazio">
+    <p>{{ mensagem }}</p>
+    {% if link %}<a class="btn btn-primario" href="{{ link }}">{{ texto_link }}</a>{% endif %}
+  </div>
+{% endmacro %}

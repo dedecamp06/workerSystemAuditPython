@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoria #{{ auditoria.id }} | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Auditoria #{{ auditoria.id }} (versao {{ auditoria.versao }}){% endblock %}
+{% block pagina_subtitulo %}
+  {{ auditoria.cliente.nome }} &middot; atendimento {{ auditoria.atendimento.protocolo }}
+  &middot; executada em {{ auditoria.executada_em|datahora_br }}
+{% endblock %}
+
+{% block conteudo %}
+<div class="barra-acoes">
+  <a class="btn btn-contorno" href="{{ url_for('resultados.listar') }}">&larr; Resultados</a>
+  <a class="btn btn-contorno"
+     href="{{ url_for('atendimentos.detalhe', atendimento_id=auditoria.atendimento_id) }}">Ver atendimento</a>
+  {% for tipo in ['json', 'txt'] %}
+    {% if auditoria.arquivo(tipo) %}
+      <a class="btn btn-contorno"
+         href="{{ url_for('resultados.baixar_arquivo', auditoria_id=auditoria.id, tipo=tipo) }}">
+        Baixar {{ tipo|upper }}
+      </a>
+    {% endif %}
+  {% endfor %}
+  <a class="btn btn-primario"
+     href="{{ url_for('auditorias.executar', atendimento_id=auditoria.atendimento_id, reauditar=1) }}">Reauditar</a>
+</div>
+
+{% if auditoria.obrigatorios_nao_atendidos %}
+  <div class="alerta alerta-erro">
+    <span><b>Criterios obrigatorios nao atendidos:</b>
+      {{ auditoria.obrigatorios_nao_atendidos|map(attribute='criterio_nome')|join(', ') }}.
+      A auditoria e reprovada independentemente da pontuacao total.</span>
+  </div>
+{% endif %}
+{% if auditoria.requer_revisao_humana %}
+  <div class="alerta alerta-aviso">
+    <span><b>Revisao humana necessaria.</b>
+      {% if auditoria.inconclusivos %}
+        Criterios inconclusivos: {{ auditoria.inconclusivos|map(attribute='criterio_nome')|join(', ') }}.
+      {% else %}
+        Nao foi possivel calcular a pontuacao com os criterios aplicaveis.
+      {% endif %}
+      Nenhuma aprovacao automatica foi atribuida.</span>
+  </div>
+{% endif %}
+
+<section class="cards">
+  <div class="card {{ 'card-verde' if auditoria.situacao == 'aprovado' else ('card-vermelho' if auditoria.situacao == 'reprovado' else 'card-laranja') }}">
+    <span class="card-rotulo">Pontuacao final</span>
+    <strong class="card-valor">{{ auditoria.pontuacao_formatada }}</strong>
+    <span class="card-detalhe">nota minima {{ auditoria.nota_minima_aplicada|numero(1) }}%</span>
+  </div>
+  <div class="card card-azul">
+    <span class="card-rotulo">Situacao geral</span>
+    <strong class="card-valor pequeno">{{ auditoria.rotulo_situacao }}</strong>
+    <span class="card-detalhe">{{ 'ajustada manualmente' if auditoria.ajustada_manualmente else 'avaliacao automatica' }}</span>
+  </div>
+  <div class="card card-indigo">
+    <span class="card-rotulo">Pesos / pontos</span>
+    <strong class="card-valor pequeno">{{ auditoria.soma_pontos|numero(2) }} / {{ auditoria.soma_pesos|numero(2) }}</strong>
+    <span class="card-detalhe">metodo {{ auditoria.metodo }}</span>
+  </div>
+  <div class="card card-cinza">
+    <span class="card-rotulo">Executada por</span>
+    <strong class="card-valor pequeno">{{ auditoria.usuario.nome if auditoria.usuario else '-' }}</strong>
+    <span class="card-detalhe">{{ auditoria.executada_em|datahora_br }}</span>
+  </div>
+</section>
+
+<div class="cartao">
+  <h2 class="cartao-titulo">Criterios avaliados</h2>
+  <div class="tabela-rolagem">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>#</th><th>Criterio</th><th>Peso</th><th>Status</th><th>Pontuacao</th>
+          <th>Justificativa e evidencias</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for resultado in auditoria.resultados %}
+          <tr class="{{ 'linha-alerta' if resultado.obrigatorio and resultado.status == 'nao_atendido' }}">
+            <td>{{ resultado.ordem }}</td>
+            <td>
+              <strong>{{ resultado.criterio_nome }}</strong>
+              {% if resultado.obrigatorio %}<span class="badge badge-alerta">Obrigatorio</span>{% endif %}
+              {% if resultado.criterio_descricao %}<br><small>{{ resultado.criterio_descricao }}</small>{% endif %}
+            </td>
+            <td>{{ resultado.peso|numero(2) }}</td>
+            <td>
+              <span class="{{ resultado.status|classe_status }}">{{ resultado.rotulo_status }}</span>
+              {% if not resultado.considerado_no_calculo %}
+                <br><small class="texto-apagado">fora do calculo</small>
+              {% endif %}
+              {% if resultado.ajustado_manualmente %}
+                <br><small class="texto-apagado">ajustado manualmente</small>
+              {% endif %}
+            </td>
+            <td>{{ resultado.pontuacao|numero(2) }}</td>
+            <td class="celula-justificativa">
+              <p>{{ resultado.justificativa or '-' }}</p>
+              {% if resultado.evidencias %}
+                <details class="evidencias">
+                  <summary>Evidencias</summary>
+                  <ul>
+                    {% for evidencia in resultado.evidencias.split('\n') %}
+                      {% if evidencia %}<li>{{ evidencia }}</li>{% endif %}
+                    {% endfor %}
+                  </ul>
+                </details>
+              {% endif %}
+              <small class="texto-apagado">confianca: {{ resultado.confianca }}</small>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grade-2">
+  <div class="cartao">
+    <h2 class="cartao-titulo">Como a pontuacao foi calculada</h2>
+    <pre class="codigo">{{ auditoria.resumo_calculo }}</pre>
+    {% if auditoria.observacoes %}
+      <h3>Observacoes do auditor</h3>
+      <p>{{ auditoria.observacoes }}</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Arquivos armazenados</h2>
+    {% if auditoria.arquivos %}
+      <table class="tabela compacta">
+        <thead><tr><th>Tipo</th><th>Caminho</th><th>Tamanho</th><th></th></tr></thead>
+        <tbody>
+          {% for arquivo in auditoria.arquivos %}
+            <tr>
+              <td><span class="badge badge-neutro">{{ arquivo.tipo|upper }}</span></td>
+              <td><code class="quebra">auditorias/{{ arquivo.caminho_relativo }}</code></td>
+              <td>{{ arquivo.tamanho_bytes }} bytes</td>
+              <td class="direita">
+                <a class="btn btn-mini btn-contorno"
+                   href="{{ url_for('resultados.baixar_arquivo', auditoria_id=auditoria.id, tipo=arquivo.tipo) }}">Baixar</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="texto-apagado">Integridade (SHA-256) registrada no banco para cada arquivo.</p>
+    {% else %}
+      <p class="texto-erro">Nenhum arquivo registrado para esta auditoria.</p>
+    {% endif %}
+
+    <h3>Historico do atendimento</h3>
+    <table class="tabela compacta">
+      <thead><tr><th>Versao</th><th>Data</th><th>Pontuacao</th><th>Situacao</th><th></th></tr></thead>
+      <tbody>
+        {% for item in historico %}
+          <tr class="{{ 'linha-atual' if item.id == auditoria.id }}">
+            <td>v{{ item.versao }}</td>
+            <td>{{ item.executada_em|datahora_br }}</td>
+            <td>{{ item.pontuacao_formatada }}</td>
+            <td><span class="{{ item.situacao|classe_situacao }}">{{ item.rotulo_situacao }}</span></td>
+            <td class="direita">
+              {% if item.id != auditoria.id %}
+                <a class="btn btn-mini btn-contorno"
+                   href="{{ url_for('resultados.detalhe', auditoria_id=item.id) }}">Ver</a>
+              {% else %}
+                <small>atual</small>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

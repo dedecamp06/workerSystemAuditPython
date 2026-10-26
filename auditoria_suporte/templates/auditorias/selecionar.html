@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio, paginacao as nav_paginas %}
+{% block titulo %}Executar auditoria | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Executar auditoria{% endblock %}
+{% block pagina_subtitulo %}Selecione o atendimento a ser avaliado{% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  <div class="cartao-cabecalho">
+    <form class="filtros" method="get">
+      <select name="cliente_id">
+        <option value="">Todos os clientes</option>
+        {% for cliente in clientes %}
+          <option value="{{ cliente.id }}" {{ 'selected' if cliente_id == cliente.id }}>{{ cliente.nome }}</option>
+        {% endfor %}
+      </select>
+      <select name="exibir">
+        <option value="pendentes" {{ 'selected' if exibir == 'pendentes' }}>Pendentes de auditoria</option>
+        <option value="auditados" {{ 'selected' if exibir == 'auditados' }}>Ja auditados (reauditoria)</option>
+        <option value="todos" {{ 'selected' if exibir == 'todos' }}>Todos</option>
+      </select>
+      <input type="search" name="busca" value="{{ busca }}" placeholder="Protocolo ou atendente">
+      <button class="btn btn-contorno" type="submit">Filtrar</button>
+      <a class="btn btn-texto" href="{{ url_for('auditorias.selecionar') }}">Limpar</a>
+    </form>
+  </div>
+
+  {% if atendimentos %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Protocolo</th><th>Cliente</th><th>Atendente</th><th>Data</th>
+            <th>Criterios ativos</th><th>Auditoria atual</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for atendimento in atendimentos %}
+            {% set criterios_ativos = atendimento.cliente.criterios_ativos|length %}
+            <tr>
+              <td><a href="{{ url_for('atendimentos.detalhe', atendimento_id=atendimento.id) }}"><code>{{ atendimento.protocolo }}</code></a></td>
+              <td>{{ atendimento.cliente.nome }}</td>
+              <td>{{ atendimento.atendente }}</td>
+              <td>{{ atendimento.data_atendimento|data_br }}</td>
+              <td>
+                {% if criterios_ativos %}
+                  {{ criterios_ativos }}
+                {% else %}
+                  <span class="texto-erro">nenhum</span>
+                {% endif %}
+              </td>
+              <td>
+                {% set auditoria = atendimento.auditoria_atual %}
+                {% if auditoria %}
+                  <span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span>
+                  <small>v{{ auditoria.versao }} &middot; {{ auditoria.pontuacao_formatada }}</small>
+                {% else %}
+                  <span class="badge badge-neutro">Pendente</span>
+                {% endif %}
+              </td>
+              <td class="direita">
+                {% if criterios_ativos %}
+                  <a class="btn btn-mini btn-primario"
+                     href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id) }}">
+                    {{ 'Reauditar' if atendimento.auditado else 'Auditar' }}
+                  </a>
+                {% else %}
+                  <a class="btn btn-mini btn-contorno"
+                     href="{{ url_for('criterios.novo', cliente_id=atendimento.cliente_id) }}">Cadastrar criterios</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {{ nav_paginas(paginacao, 'auditorias.selecionar', {'cliente_id': cliente_id or '', 'exibir': exibir, 'busca': busca}) }}
+  {% else %}
+    {{ vazio('Nenhum atendimento encontrado para auditoria com os filtros atuais.', url_for('atendimentos.novo'), 'Cadastrar atendimento') }}
+  {% endif %}
+</div>
+{% endblock %}

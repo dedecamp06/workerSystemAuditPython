@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar | {{ sistema_nome }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="tela-login">
+  <div class="login-caixa">
+    <div class="login-apresentacao">
+      <span class="marca-icone grande">AA</span>
+      <h1>{{ sistema_nome }}</h1>
+      <p>
+        Controle de qualidade dos atendimentos de suporte: cadastro de clientes,
+        criterios por cliente, execucao de auditorias e armazenamento organizado
+        dos resultados.
+      </p>
+      <ul class="login-lista">
+        <li>Criterios configuraveis por cliente</li>
+        <li>Pontuacao percentual ponderada</li>
+        <li>Resultados em JSON e TXT por cliente</li>
+      </ul>
+    </div>
+
+    <div class="login-formulario">
+      <h2>Acessar o sistema</h2>
+
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, mensagem in mensagens %}
+          <div class="alerta alerta-{{ categoria }}"><span>{{ mensagem }}</span></div>
+        {% endfor %}
+      {% endwith %}
+
+      {% if erros %}
+        <div class="alerta alerta-erro">
+          <ul>{% for erro in erros %}<li>{{ erro }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+
+        <label for="identificador">Usuario ou e-mail</label>
+        <input type="text" id="identificador" name="identificador" required
+               autocomplete="username" value="{{ identificador or '' }}" autofocus>
+
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" required autocomplete="current-password">
+
+        <button class="btn btn-primario btn-bloco" type="submit">Entrar</button>
+      </form>
+
+      <p class="login-dica">
+        Primeiro acesso? Crie o administrador pelo terminal:<br>
+        <code>flask --app app criar-admin</code>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

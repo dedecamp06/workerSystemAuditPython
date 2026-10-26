@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio %}
+{% block titulo %}Clientes | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Clientes{% endblock %}
+{% block pagina_subtitulo %}{{ clientes|length }} cliente(s) listado(s){% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  <div class="cartao-cabecalho">
+    <form class="filtros" method="get">
+      <input type="search" name="busca" value="{{ busca }}" placeholder="Nome ou identificador">
+      <select name="situacao">
+        <option value="todos" {{ 'selected' if situacao == 'todos' }}>Todos</option>
+        <option value="ativos" {{ 'selected' if situacao == 'ativos' }}>Somente ativos</option>
+        <option value="inativos" {{ 'selected' if situacao == 'inativos' }}>Somente inativos</option>
+      </select>
+      <button class="btn btn-contorno" type="submit">Filtrar</button>
+      <a class="btn btn-texto" href="{{ url_for('clientes.listar') }}">Limpar</a>
+    </form>
+    <a class="btn btn-primario" href="{{ url_for('clientes.novo') }}">+ Novo cliente</a>
+  </div>
+
+  {% if clientes %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Identificador</th><th>Nome</th><th>Contato</th><th>Nota minima</th>
+            <th>Atendimentos</th><th>Criterios ativos</th><th>Situacao</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cliente in clientes %}
+            <tr>
+              <td><code>{{ cliente.codigo }}</code></td>
+              <td><a href="{{ url_for('clientes.detalhe', cliente_id=cliente.id) }}">{{ cliente.nome }}</a></td>
+              <td>{{ cliente.contato or '-' }}<br><small>{{ cliente.email or '' }}</small></td>
+              <td>{{ cliente.nota_minima|numero(1) }}%</td>
+              <td>{{ cliente.atendimentos|length }}</td>
+              <td>{{ cliente.criterios_ativos|length }}</td>
+              <td>
+                {% if cliente.ativo %}
+                  <span class="badge badge-aprovado">Ativo</span>
+                {% else %}
+                  <span class="badge badge-neutro">Inativo</span>
+                {% endif %}
+              </td>
+              <td class="direita acoes-linha">
+                <a class="btn btn-mini btn-contorno" href="{{ url_for('clientes.detalhe', cliente_id=cliente.id) }}">Ver</a>
+                <a class="btn btn-mini btn-contorno" href="{{ url_for('clientes.editar', cliente_id=cliente.id) }}">Editar</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ vazio('Nenhum cliente encontrado com os filtros informados.', url_for('clientes.novo'), 'Cadastrar cliente') }}
+  {% endif %}
+</div>
+{% endblock %}

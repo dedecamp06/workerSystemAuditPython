@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}{{ atendimento.protocolo }} | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Atendimento {{ atendimento.protocolo }}{% endblock %}
+{% block pagina_subtitulo %}{{ atendimento.cliente.nome }} &middot; {{ atendimento.data_atendimento|data_br }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra-acoes">
+  <a class="btn btn-contorno" href="{{ url_for('atendimentos.listar') }}">&larr; Atendimentos</a>
+  {% if not atendimento.auditado %}
+    <a class="btn btn-contorno" href="{{ url_for('atendimentos.editar', atendimento_id=atendimento.id) }}">Editar</a>
+    <a class="btn btn-primario" href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id) }}">Executar auditoria</a>
+    <form method="post" action="{{ url_for('atendimentos.excluir', atendimento_id=atendimento.id) }}" class="inline"
+          data-confirmar="Confirma a exclusao do atendimento {{ atendimento.protocolo }}?">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-perigo" type="submit">Excluir</button>
+    </form>
+  {% else %}
+    <a class="btn btn-contorno"
+       href="{{ url_for('resultados.detalhe', auditoria_id=atendimento.auditoria_atual.id) }}">Ultimo resultado</a>
+    <a class="btn btn-primario"
+       href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id) }}">Reauditar</a>
+  {% endif %}
+</div>
+
+{% if atendimento.auditado %}
+  <div class="alerta alerta-info">
+    <span>Este atendimento ja foi auditado ({{ atendimento.auditorias|length }} execucao(oes)) e,
+    por isso, nao pode mais ser editado ou excluido: o conteudo avaliado precisa ser preservado.</span>
+  </div>
+{% endif %}
+
+<div class="grade-2">
+  <div class="cartao">
+    <h2 class="cartao-titulo">Dados do atendimento</h2>
+    <dl class="lista-dados">
+      <dt>Protocolo</dt><dd><code>{{ atendimento.protocolo }}</code></dd>
+      <dt>Cliente</dt>
+      <dd><a href="{{ url_for('clientes.detalhe', cliente_id=atendimento.cliente_id) }}">{{ atendimento.cliente.nome }}</a></dd>
+      <dt>Atendente</dt><dd>{{ atendimento.atendente }}</dd>
+      <dt>Data</dt><dd>{{ atendimento.data_atendimento|data_br }}</dd>
+      <dt>Canal</dt><dd>{{ atendimento.canal or '-' }}</dd>
+      <dt>Origem</dt><dd>{{ atendimento.origem }}</dd>
+      <dt>Cadastrado em</dt><dd>{{ atendimento.criado_em|datahora_br }}</dd>
+      <dt>Caracteres</dt><dd>{{ atendimento.conteudo|length }}</dd>
+    </dl>
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Historico de auditorias</h2>
+    {% if atendimento.auditorias %}
+      <table class="tabela compacta">
+        <thead><tr><th>Versao</th><th>Executada em</th><th>Pontuacao</th><th>Situacao</th><th></th></tr></thead>
+        <tbody>
+          {% for auditoria in atendimento.auditorias|sort(attribute='versao', reverse=true) %}
+            <tr>
+              <td>v{{ auditoria.versao }}</td>
+              <td>{{ auditoria.executada_em|datahora_br }}</td>
+              <td><strong>{{ auditoria.pontuacao_formatada }}</strong></td>
+              <td><span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span></td>
+              <td class="direita">
+                <a class="btn btn-mini btn-contorno"
+                   href="{{ url_for('resultados.detalhe', auditoria_id=auditoria.id) }}">Ver</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="texto-apagado">Nenhuma auditoria executada para este atendimento.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cartao">
+  <h2 class="cartao-titulo">Conteudo integral</h2>
+  <pre class="transcricao">{{ atendimento.conteudo }}</pre>
+</div>
+{% endblock %}

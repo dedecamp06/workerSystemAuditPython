@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% from "_macros.html" import erros_formulario %}
+{% block titulo %}{{ 'Editar' if criterio else 'Novo' }} criterio | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}{{ 'Editar criterio' if criterio else 'Novo criterio' }}{% endblock %}
+{% block pagina_subtitulo %}
+  {{ criterio.cliente.nome if criterio else 'O criterio fica vinculado a um unico cliente' }}
+{% endblock %}
+
+{% block conteudo %}
+<div class="grade-2-1">
+  <div class="cartao">
+    {{ erros_formulario(erros) }}
+
+    <form method="post" novalidate>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+      <div class="grade-formulario">
+        <div class="campo">
+          <label for="cliente_id">Cliente *</label>
+          {% if criterio %}
+            <input type="text" value="{{ criterio.cliente.nome }}" disabled>
+            <small>O vinculo com o cliente nao pode ser alterado.</small>
+          {% else %}
+            <select id="cliente_id" name="cliente_id" required>
+              <option value="">Selecione o cliente</option>
+              {% for cliente in clientes %}
+                <option value="{{ cliente.id }}"
+                  {{ 'selected' if dados.get('cliente_id')|string == cliente.id|string }}>
+                  {{ cliente.nome }} ({{ cliente.codigo }})
+                </option>
+              {% endfor %}
+            </select>
+          {% endif %}
+        </div>
+
+        <div class="campo">
+          <label for="nome">Nome do criterio *</label>
+          <input type="text" id="nome" name="nome" maxlength="160" required
+                 value="{{ dados.get('nome', '') or '' }}">
+        </div>
+
+        <div class="campo campo-largo">
+          <label for="descricao">Descricao</label>
+          <textarea id="descricao" name="descricao" rows="2" maxlength="2000">{{ dados.get('descricao', '') or '' }}</textarea>
+        </div>
+
+        <div class="campo">
+          <label for="peso">Peso / pontuacao *</label>
+          <input type="number" id="peso" name="peso" step="0.1" min="0.1" required
+                 value="{{ dados.get('peso', 1) }}">
+          <small>Numero maior que zero, validado no servidor.</small>
+        </div>
+
+        <div class="campo">
+          <label for="minimo_termos">Minimo de termos para considerar atendido *</label>
+          <input type="number" id="minimo_termos" name="minimo_termos" min="1" step="1" required
+                 value="{{ dados.get('minimo_termos', 1) }}">
+        </div>
+
+        <div class="campo campo-largo">
+          <label for="termos_esperados">Termos esperados (evidencia de que o criterio foi cumprido)</label>
+          <textarea id="termos_esperados" name="termos_esperados" rows="3"
+                    placeholder="bom dia, boa tarde, meu nome e">{{ dados.get('termos_esperados', '') or '' }}</textarea>
+          <small>Separe por virgula, ponto e virgula ou uma linha por termo.</small>
+        </div>
+
+        <div class="campo campo-largo">
+          <label for="termos_proibidos">Termos proibidos (reprovam o criterio imediatamente)</label>
+          <textarea id="termos_proibidos" name="termos_proibidos" rows="2"
+                    placeholder="nao e problema meu, calma ai">{{ dados.get('termos_proibidos', '') or '' }}</textarea>
+        </div>
+
+        <div class="campo campo-largo">
+          <label for="termos_contexto">Termos de contexto (indicam que o criterio se aplica)</label>
+          <textarea id="termos_contexto" name="termos_contexto" rows="2"
+                    placeholder="fatura, cobranca, boleto">{{ dados.get('termos_contexto', '') or '' }}</textarea>
+          <small>Obrigatorio quando o criterio aceita o status "nao aplicavel".</small>
+        </div>
+
+        <div class="campo campo-largo opcoes">
+          <label class="checkbox-inline">
+            <input type="checkbox" name="obrigatorio" value="1" {{ 'checked' if dados.get('obrigatorio') }}>
+            Criterio obrigatorio (reprova a auditoria quando nao atendido)
+          </label>
+          <label class="checkbox-inline">
+            <input type="checkbox" name="permite_nao_aplicavel" value="1"
+                   {{ 'checked' if dados.get('permite_nao_aplicavel') }}>
+            Pode ser considerado "nao aplicavel" (desconsiderado do calculo, com justificativa)
+          </label>
+          <label class="checkbox-inline">
+            <input type="checkbox" name="ativo" value="1" {{ 'checked' if dados.get('ativo') }}>
+            Criterio ativo (usado nas proximas auditorias)
+          </label>
+        </div>
+      </div>
+
+      <div class="acoes-formulario">
+        <button class="btn btn-primario" type="submit">
+          {{ 'Salvar alteracoes' if criterio else 'Cadastrar criterio' }}
+        </button>
+        <a class="btn btn-contorno"
+           href="{{ url_for('criterios.listar', cliente_id=criterio.cliente_id if criterio else None) }}">Voltar</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="cartao cartao-ajuda">
+    <h2 class="cartao-titulo">Como o criterio e avaliado</h2>
+    <ol class="lista-passos">
+      <li>Se algum <b>termo proibido</b> aparece no atendimento: <span class="badge badge-reprovado">Nao atendido</span></li>
+      <li>Se nao houver <b>termos esperados</b> cadastrados: <span class="badge badge-revisao">Inconclusivo</span></li>
+      <li>Se houver <b>termos de contexto</b> cadastrados, nenhum aparecer e o criterio aceitar "nao aplicavel":
+          <span class="badge badge-neutro">Nao aplicavel</span> (fora do calculo)</li>
+      <li>Se a quantidade de termos esperados encontrados atingir o minimo:
+          <span class="badge badge-aprovado">Atendido</span> (ganha o peso integral)</li>
+      <li>Se houver evidencia parcial (abaixo do minimo) ou o conteudo for curto demais:
+          <span class="badge badge-revisao">Inconclusivo</span></li>
+      <li>Sem nenhuma evidencia em conteudo suficiente: <span class="badge badge-reprovado">Nao atendido</span></li>
+    </ol>
+    <div class="alerta alerta-info">
+      <span>A verificacao e <b>lexical</b> (busca de termos, sem acentos e sem diferenciar
+      maiusculas), nao e analise semantica. Todo criterio inconclusivo vai para revisao
+      humana em vez de receber aprovacao automatica.</span>
+    </div>
+    <p class="texto-apagado">
+      Em cada auditoria, os dados do criterio (nome, peso, obrigatoriedade) sao copiados
+      para o resultado. Alterar o criterio depois nao modifica auditorias ja realizadas.
+    </p>
+  </div>
+</div>
+{% endblock %}

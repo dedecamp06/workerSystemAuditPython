@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "_macros.html" import erros_formulario %}
+{% block titulo %}Importar atendimentos | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Importar atendimentos{% endblock %}
+{% block pagina_subtitulo %}Arquivos CSV ou TXT, sempre vinculados a um cliente{% endblock %}
+
+{% block conteudo %}
+<div class="grade-2">
+  <div class="cartao">
+    {{ erros_formulario(erros) }}
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+      <div class="campo">
+        <label for="cliente_id">Cliente de destino *</label>
+        <select id="cliente_id" name="cliente_id" required>
+          <option value="">Selecione o cliente</option>
+          {% for cliente in clientes %}
+            <option value="{{ cliente.id }}"
+              {{ 'selected' if dados.get('cliente_id')|string == cliente.id|string }}>
+              {{ cliente.nome }} ({{ cliente.codigo }})
+            </option>
+          {% endfor %}
+        </select>
+        <small>Todos os atendimentos do arquivo serao vinculados a este cliente.</small>
+      </div>
+
+      <div class="campo">
+        <label for="arquivo">Arquivo (.csv ou .txt) *</label>
+        <input type="file" id="arquivo" name="arquivo" accept=".csv,.txt" required>
+      </div>
+
+      <div class="grade-formulario">
+        <div class="campo">
+          <label for="atendente">Atendente padrao</label>
+          <input type="text" id="atendente" name="atendente" maxlength="120"
+                 value="{{ dados.get('atendente', '') or '' }}">
+          <small>Usado quando o arquivo nao informa o atendente.</small>
+        </div>
+        <div class="campo">
+          <label for="data_atendimento">Data padrao</label>
+          <input type="date" id="data_atendimento" name="data_atendimento"
+                 value="{{ dados.get('data_atendimento', '') or '' }}">
+          <small>Usada quando o arquivo nao informa a data.</small>
+        </div>
+      </div>
+
+      <div class="acoes-formulario">
+        <button class="btn btn-primario" type="submit">Importar arquivo</button>
+        <a class="btn btn-contorno" href="{{ url_for('atendimentos.modelo_csv') }}">Baixar modelo CSV</a>
+        <a class="btn btn-texto" href="{{ url_for('atendimentos.listar') }}">Voltar</a>
+      </div>
+    </form>
+
+    {% if resultado %}
+      <hr>
+      <h3>Resultado da importacao</h3>
+      <ul class="lista-resultado">
+        <li><strong>{{ resultado.total }}</strong> registro(s) encontrado(s) no arquivo</li>
+        <li class="sucesso"><strong>{{ resultado.importados }}</strong> importado(s) com sucesso</li>
+        <li class="erro"><strong>{{ resultado.erros|length }}</strong> com erro (nao importado(s))</li>
+      </ul>
+      {% if resultado.erros %}
+        <div class="alerta alerta-erro bloco-erros">
+          <strong>Erros encontrados:</strong>
+          <ul>{% for erro in resultado.erros %}<li>{{ erro }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+      {% if resultado.importados %}
+        <a class="btn btn-contorno"
+           href="{{ url_for('atendimentos.listar', cliente_id=dados.get('cliente_id')) }}">
+          Ver atendimentos importados
+        </a>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Formato esperado</h2>
+
+    <h3>Arquivo CSV</h3>
+    <p>Primeira linha com o cabecalho. Separador <code>;</code> ou <code>,</code> (detectado automaticamente).</p>
+    <pre class="codigo">{{ cabecalho_csv }}</pre>
+    <ul class="lista-simples">
+      <li><strong>protocolo</strong> (opcional): identificador do atendimento. Se vazio, o sistema gera um.</li>
+      <li><strong>atendente</strong> (obrigatorio): pode vir do arquivo ou do campo "atendente padrao".</li>
+      <li><strong>data_atendimento</strong> (obrigatorio): <code>AAAA-MM-DD</code> ou <code>DD/MM/AAAA</code>.</li>
+      <li><strong>canal</strong> (opcional): telefone, chat, e-mail etc.</li>
+      <li><strong>conteudo</strong> (obrigatorio): transcricao integral, com no minimo 20 caracteres.</li>
+    </ul>
+    <p class="texto-apagado">
+      Nomes alternativos aceitos: identificador/id/ticket (protocolo), agente/operador (atendente),
+      data (data_atendimento), transcricao/conversa/historico/texto (conteudo).
+    </p>
+
+    <h3>Arquivo TXT</h3>
+    <p>Varios atendimentos separados por uma linha com tres hifens (<code>---</code>):</p>
+    <pre class="codigo">protocolo: ATD-2026-010
+atendente: Maria Souza
+data: 2026-10-20
+canal: telefone
+conteudo:
+Atendente: bom dia, meu nome e Maria...
+Cliente: bom dia...
+---
+protocolo: ATD-2026-011
+atendente: Joao Lima
+data: 20/10/2026
+conteudo:
+Atendente: boa tarde...</pre>
+    <p>
+      Um arquivo TXT sem cabecalhos e importado como um unico atendimento, usando o
+      atendente e a data padrao informados ao lado, e o nome do arquivo como protocolo.
+    </p>
+
+    <div class="alerta alerta-info">
+      <span>Registros com erro nunca sao gravados. O sistema informa quantos foram
+      importados e detalha a linha ou o bloco de cada erro.</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

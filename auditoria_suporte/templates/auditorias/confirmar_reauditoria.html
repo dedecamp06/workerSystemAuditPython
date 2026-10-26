@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Reauditoria | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Este atendimento ja foi auditado{% endblock %}
+{% block pagina_subtitulo %}{{ atendimento.protocolo }} &middot; {{ atendimento.cliente.nome }}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  <div class="alerta alerta-aviso">
+    <span>Para evitar auditorias duplicadas por engano, a reauditoria precisa ser confirmada.
+    A auditoria anterior <b>nao sera apagada</b>: a nova execucao recebe uma nova versao,
+    com arquivos proprios.</span>
+  </div>
+
+  <dl class="lista-dados">
+    <dt>Ultima auditoria</dt>
+    <dd>
+      #{{ auditoria.id }} (versao {{ auditoria.versao }}) &middot;
+      {{ auditoria.executada_em|datahora_br }} &middot;
+      <span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span>
+      &middot; <strong>{{ auditoria.pontuacao_formatada }}</strong>
+    </dd>
+    <dt>Total de execucoes</dt><dd>{{ atendimento.auditorias|length }}</dd>
+  </dl>
+
+  <div class="acoes-formulario">
+    <a class="btn btn-primario"
+       href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id, reauditar=1) }}">
+      Reauditar atendimento (nova versao)
+    </a>
+    <a class="btn btn-contorno" href="{{ url_for('resultados.detalhe', auditoria_id=auditoria.id) }}">
+      Ver resultado atual
+    </a>
+    <a class="btn btn-texto" href="{{ url_for('auditorias.selecionar') }}">Voltar</a>
+  </div>
+</div>
+{% endblock %}

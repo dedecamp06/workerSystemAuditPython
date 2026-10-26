@@ -1,0 +1,10 @@
+# Dependencias do sistema de Auditoria Automatizada de Atendimentos
+Flask>=3.0,<4.0
+Flask-SQLAlchemy>=3.1,<4.0
+SQLAlchemy>=2.0,<3.0
+Werkzeug>=3.0,<4.0
+Jinja2>=3.1,<4.0
+click>=8.1
+
+# Testes (opcional em producao)
+pytest>=8.0

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_macros.html" import erros_formulario %}
+{% block titulo %}{{ 'Editar' if atendimento else 'Novo' }} atendimento | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}{{ 'Editar atendimento' if atendimento else 'Novo atendimento' }}{% endblock %}
+{% block pagina_subtitulo %}
+  {{ atendimento.protocolo if atendimento else 'Informe o conteudo integral do atendimento que sera auditado' }}
+{% endblock %}
+
+{% block conteudo %}
+<div class="cartao">
+  {{ erros_formulario(erros) }}
+
+  <form method="post" novalidate>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grade-formulario">
+      <div class="campo">
+        <label for="cliente_id">Cliente *</label>
+        {% if atendimento %}
+          <input type="text" value="{{ atendimento.cliente.nome }}" disabled>
+          <small>O vinculo com o cliente nao pode ser alterado.</small>
+        {% else %}
+          <select id="cliente_id" name="cliente_id" required>
+            <option value="">Selecione o cliente</option>
+            {% for cliente in clientes %}
+              <option value="{{ cliente.id }}"
+                {{ 'selected' if dados.get('cliente_id')|string == cliente.id|string }}>
+                {{ cliente.nome }} ({{ cliente.codigo }})
+              </option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+
+      <div class="campo">
+        <label for="protocolo">Protocolo / identificador</label>
+        <input type="text" id="protocolo" name="protocolo" maxlength="60"
+               value="{{ dados.get('protocolo', '') or '' }}"
+               placeholder="Gerado automaticamente se vazio">
+      </div>
+
+      <div class="campo">
+        <label for="atendente">Atendente responsavel *</label>
+        <input type="text" id="atendente" name="atendente" maxlength="120" required
+               value="{{ dados.get('atendente', '') or '' }}">
+      </div>
+
+      <div class="campo">
+        <label for="data_atendimento">Data do atendimento *</label>
+        <input type="date" id="data_atendimento" name="data_atendimento" required
+               value="{{ dados.get('data_atendimento', '') or '' }}">
+      </div>
+
+      <div class="campo">
+        <label for="canal">Canal</label>
+        <input type="text" id="canal" name="canal" maxlength="40" list="canais"
+               value="{{ dados.get('canal', '') or '' }}">
+        <datalist id="canais">
+          <option value="telefone"><option value="chat"><option value="email">
+          <option value="whatsapp"><option value="presencial">
+        </datalist>
+      </div>
+
+      <div class="campo campo-largo">
+        <label for="conteudo">Conteudo integral do atendimento *</label>
+        <textarea id="conteudo" name="conteudo" rows="14" required
+                  placeholder="Cole aqui a transcricao, a conversa ou o historico completo do atendimento.">{{ dados.get('conteudo', '') or '' }}</textarea>
+        <small>Minimo de 20 caracteres. Conteudos muito curtos geram criterios inconclusivos na auditoria.</small>
+      </div>
+    </div>
+
+    <div class="acoes-formulario">
+      <button class="btn btn-primario" type="submit">
+        {{ 'Salvar alteracoes' if atendimento else 'Cadastrar atendimento' }}
+      </button>
+      <a class="btn btn-contorno"
+         href="{{ url_for('atendimentos.detalhe', atendimento_id=atendimento.id) if atendimento else url_for('atendimentos.listar') }}">
+        Voltar
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

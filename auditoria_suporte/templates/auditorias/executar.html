@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% from "_macros.html" import erros_formulario %}
+{% block titulo %}Auditoria de {{ atendimento.protocolo }} | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Auditoria do atendimento {{ atendimento.protocolo }}{% endblock %}
+{% block pagina_subtitulo %}
+  {{ atendimento.cliente.nome }} &middot; atendente {{ atendimento.atendente }}
+  &middot; {{ atendimento.data_atendimento|data_br }}
+{% endblock %}
+
+{% block conteudo %}
+{{ erros_formulario(erros) }}
+
+<div class="alerta alerta-info">
+  <span>
+    Avaliacao sugerida pelo motor de regras a partir dos
+    <b>{{ atendimento.cliente.criterios_ativos|length }} criterio(s) ativo(s)</b>
+    do cliente <b>{{ atendimento.cliente.nome }}</b>. Revise os status antes de registrar:
+    a verificacao automatica e lexical e nao substitui o julgamento humano.
+    A auditoria somente e gravada ao confirmar no final da pagina.
+  </span>
+</div>
+
+<div class="grade-2-1">
+  <div class="cartao">
+    <h2 class="cartao-titulo">Conteudo avaliado</h2>
+    <pre class="transcricao alta">{{ atendimento.conteudo }}</pre>
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Pontuacao sugerida</h2>
+    <div class="pontuacao-grande {{ 'tom-aprovado' if consolidado.situacao == 'aprovado' else ('tom-reprovado' if consolidado.situacao == 'reprovado' else 'tom-revisao') }}">
+      {% if consolidado.pontuacao_final is none %}--{% else %}{{ consolidado.pontuacao_final|numero(2) }}%{% endif %}
+      <small>{{ situacoes[consolidado.situacao] }}</small>
+    </div>
+    <dl class="lista-dados">
+      <dt>Soma dos pesos aplicaveis</dt><dd>{{ consolidado.soma_pesos|numero(2) }}</dd>
+      <dt>Soma dos pontos obtidos</dt><dd>{{ consolidado.soma_pontos|numero(2) }}</dd>
+      <dt>Nota minima do cliente</dt><dd>{{ atendimento.cliente.nota_minima|numero(1) }}%</dd>
+      <dt>Revisao humana</dt>
+      <dd>{{ 'Necessaria' if consolidado.requer_revisao_humana else 'Nao necessaria' }}</dd>
+    </dl>
+    {% if consolidado.obrigatorios_nao_atendidos %}
+      <div class="alerta alerta-erro">
+        <span><b>Criterios obrigatorios nao atendidos:</b>
+          {{ consolidado.obrigatorios_nao_atendidos|map(attribute='nome')|join(', ') }}</span>
+      </div>
+    {% endif %}
+    {% if consolidado.inconclusivos %}
+      <div class="alerta alerta-aviso">
+        <span><b>Criterios inconclusivos:</b>
+          {{ consolidado.inconclusivos|map(attribute='nome')|join(', ') }}</span>
+      </div>
+    {% endif %}
+    <pre class="codigo pequeno">{{ consolidado.resumo_calculo }}</pre>
+  </div>
+</div>
+
+<form method="post" class="cartao">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  {% if reauditar %}<input type="hidden" name="reauditar" value="1">{% endif %}
+
+  <h2 class="cartao-titulo">Criterios avaliados</h2>
+
+  {% for avaliacao in avaliacoes %}
+    {% set criterio = criterios_por_id.get(avaliacao.criterio_id) %}
+    <div class="criterio-avaliacao">
+      <div class="criterio-cabecalho">
+        <div>
+          <h3>
+            {{ avaliacao.nome }}
+            {% if avaliacao.obrigatorio %}<span class="badge badge-alerta">Obrigatorio</span>{% endif %}
+            <span class="{{ avaliacao.status|classe_status }}">{{ status_disponiveis[avaliacao.status] }}</span>
+          </h3>
+          {% if avaliacao.descricao %}<p class="texto-apagado">{{ avaliacao.descricao }}</p>{% endif %}
+        </div>
+        <div class="criterio-peso">
+          <span>Peso</span><strong>{{ avaliacao.peso|numero(2) }}</strong>
+        </div>
+      </div>
+
+      <div class="criterio-corpo">
+        <div class="campo">
+          <label for="status_{{ avaliacao.criterio_id }}">Status</label>
+          <select id="status_{{ avaliacao.criterio_id }}" name="status_{{ avaliacao.criterio_id }}">
+            {% for valor, rotulo in status_disponiveis.items() %}
+              {% if valor != 'nao_aplicavel' or (criterio and criterio.permite_nao_aplicavel) %}
+                <option value="{{ valor }}" {{ 'selected' if avaliacao.status == valor }}>{{ rotulo }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <small>Confianca da analise automatica: {{ avaliacao.confianca }}</small>
+        </div>
+
+        <div class="campo campo-largo">
+          <label for="justificativa_{{ avaliacao.criterio_id }}">Justificativa</label>
+          <textarea id="justificativa_{{ avaliacao.criterio_id }}"
+                    name="justificativa_{{ avaliacao.criterio_id }}" rows="3">{{ avaliacao.justificativa }}</textarea>
+          <small>Obrigatoria para "Nao atendido" e "Nao aplicavel".</small>
+        </div>
+      </div>
+
+      {% if avaliacao.evidencias %}
+        <details class="evidencias">
+          <summary>Evidencias localizadas ({{ avaliacao.evidencias|length }})</summary>
+          <ul>{% for evidencia in avaliacao.evidencias %}<li>{{ evidencia }}</li>{% endfor %}</ul>
+        </details>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  <div class="campo campo-largo">
+    <label for="observacoes">Observacoes gerais da auditoria</label>
+    <textarea id="observacoes" name="observacoes" rows="3" maxlength="4000">{{ observacoes }}</textarea>
+  </div>
+
+  <div class="acoes-formulario destaque">
+    <button class="btn btn-sucesso btn-grande" type="submit">
+      Registrar auditoria e gravar resultado
+    </button>
+    <a class="btn btn-contorno" href="{{ url_for('auditorias.selecionar') }}">Cancelar</a>
+    <p class="texto-apagado">
+      Ao registrar, os arquivos <code>JSON</code> e <code>TXT</code> sao gravados em
+      <code>auditorias/{{ atendimento.cliente.pasta }}/{{ atendimento.pasta }}/</code>.
+      Se a gravacao falhar, nada e salvo no banco de dados.
+    </p>
+  </div>
+</form>
+{% endblock %}

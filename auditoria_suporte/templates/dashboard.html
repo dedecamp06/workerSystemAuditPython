@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vazio %}
+{% block titulo %}Dashboard | {{ sistema_nome }}{% endblock %}
+{% block pagina_titulo %}Dashboard{% endblock %}
+{% block pagina_subtitulo %}Indicadores calculados a partir dos dados cadastrados{% endblock %}
+
+{% block conteudo %}
+<section class="cards">
+  <a class="card card-azul" href="{{ url_for('clientes.listar') }}">
+    <span class="card-rotulo">Clientes cadastrados</span>
+    <strong class="card-valor">{{ indicadores.total_clientes }}</strong>
+    <span class="card-detalhe">{{ indicadores.clientes_ativos }} ativo(s)</span>
+  </a>
+  <a class="card card-indigo" href="{{ url_for('atendimentos.listar') }}">
+    <span class="card-rotulo">Atendimentos cadastrados</span>
+    <strong class="card-valor">{{ indicadores.total_atendimentos }}</strong>
+    <span class="card-detalhe">{{ indicadores.total_criterios }} criterio(s) ativo(s)</span>
+  </a>
+  <a class="card card-verde" href="{{ url_for('resultados.listar') }}">
+    <span class="card-rotulo">Auditorias realizadas</span>
+    <strong class="card-valor">{{ indicadores.total_auditorias }}</strong>
+    <span class="card-detalhe">
+      {% if indicadores.media_pontuacao is not none %}
+        media {{ indicadores.media_pontuacao }}%
+      {% else %}sem pontuacao registrada{% endif %}
+    </span>
+  </a>
+  <a class="card card-laranja" href="{{ url_for('auditorias.selecionar') }}">
+    <span class="card-rotulo">Pendentes de auditoria</span>
+    <strong class="card-valor">{{ indicadores.pendentes }}</strong>
+    <span class="card-detalhe">atendimentos sem auditoria</span>
+  </a>
+</section>
+
+<section class="grade-2">
+  <div class="cartao">
+    <h2 class="cartao-titulo">Situacao das auditorias</h2>
+    <ul class="barras">
+      {% set total = indicadores.total_auditorias or 1 %}
+      <li>
+        <span class="barra-rotulo">Aprovadas <strong>{{ indicadores.aprovadas }}</strong></span>
+        <span class="barra"><i class="barra-aprovado" style="width: {{ (indicadores.aprovadas / total * 100)|round(1) }}%"></i></span>
+      </li>
+      <li>
+        <span class="barra-rotulo">Reprovadas <strong>{{ indicadores.reprovadas }}</strong></span>
+        <span class="barra"><i class="barra-reprovado" style="width: {{ (indicadores.reprovadas / total * 100)|round(1) }}%"></i></span>
+      </li>
+      <li>
+        <span class="barra-rotulo">Pendentes de revisao humana <strong>{{ indicadores.em_revisao }}</strong></span>
+        <span class="barra"><i class="barra-revisao" style="width: {{ (indicadores.em_revisao / total * 100)|round(1) }}%"></i></span>
+      </li>
+    </ul>
+
+    <div class="atalhos">
+      <a class="btn btn-primario" href="{{ url_for('auditorias.selecionar') }}">Auditar atendimentos</a>
+      <a class="btn btn-contorno" href="{{ url_for('clientes.novo') }}">Novo cliente</a>
+      <a class="btn btn-contorno" href="{{ url_for('atendimentos.novo') }}">Novo atendimento</a>
+      <a class="btn btn-contorno" href="{{ url_for('criterios.novo') }}">Novo criterio</a>
+      <a class="btn btn-contorno" href="{{ url_for('atendimentos.importar') }}">Importar CSV/TXT</a>
+    </div>
+  </div>
+
+  <div class="cartao">
+    <h2 class="cartao-titulo">Atendimentos aguardando auditoria</h2>
+    {% if atendimentos_pendentes %}
+      <table class="tabela compacta">
+        <thead>
+          <tr><th>Protocolo</th><th>Cliente</th><th>Data</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for atendimento in atendimentos_pendentes %}
+            <tr>
+              <td><a href="{{ url_for('atendimentos.detalhe', atendimento_id=atendimento.id) }}">{{ atendimento.protocolo }}</a></td>
+              <td>{{ atendimento.cliente.nome }}</td>
+              <td>{{ atendimento.data_atendimento|data_br }}</td>
+              <td class="direita">
+                <a class="btn btn-mini btn-primario"
+                   href="{{ url_for('auditorias.executar', atendimento_id=atendimento.id) }}">Auditar</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      {{ vazio('Nenhum atendimento pendente de auditoria.', url_for('atendimentos.novo'), 'Cadastrar atendimento') }}
+    {% endif %}
+  </div>
+</section>
+
+<section class="cartao">
+  <h2 class="cartao-titulo">Ultimas auditorias executadas</h2>
+  {% if ultimas %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Auditoria</th><th>Cliente</th><th>Atendimento</th><th>Atendente</th>
+            <th>Executada em</th><th>Pontuacao</th><th>Situacao</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for auditoria in ultimas %}
+            <tr>
+              <td>#{{ auditoria.id }} <small>v{{ auditoria.versao }}</small></td>
+              <td>{{ auditoria.cliente.nome }}</td>
+              <td>{{ auditoria.atendimento.protocolo }}</td>
+              <td>{{ auditoria.atendimento.atendente }}</td>
+              <td>{{ auditoria.executada_em|datahora_br }}</td>
+              <td><strong>{{ auditoria.pontuacao_formatada }}</strong></td>
+              <td>
+                <span class="{{ auditoria.situacao|classe_situacao }}">{{ auditoria.rotulo_situacao }}</span>
+                {% if auditoria.obrigatorios_nao_atendidos %}
+                  <span class="badge badge-alerta" title="Criterios obrigatorios nao atendidos">obrigatorio!</span>
+                {% endif %}
+              </td>
+              <td class="direita">
+                <a class="btn btn-mini btn-contorno"
+                   href="{{ url_for('resultados.detalhe', auditoria_id=auditoria.id) }}">Detalhes</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ vazio('Nenhuma auditoria executada ate agora.', url_for('auditorias.selecionar'), 'Executar a primeira auditoria') }}
+  {% endif %}
+</section>
+{% endblock %}
