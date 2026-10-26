@@ -30,7 +30,6 @@ Não há serviços pagos, APIs externas ou dependências de rede: tudo roda loca
 ## 2. Estrutura do projeto
 
 ```
-trabalhoAna/
 ├── app.py                     # ponto de entrada (cria a aplicação)
 ├── requirements.txt
 ├── pytest.ini
@@ -86,7 +85,6 @@ pip install -r requirements.txt
 
 ```bash
 sudo apt install python3-venv python3-pip     # apenas na primeira vez
-cd "/caminho/para/trabalhoAna"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
