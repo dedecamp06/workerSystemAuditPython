@@ -1,8 +1,11 @@
+# Arquivos que nao vao para a Vercel.
+# A "/" no inicio limita a regra a raiz do projeto. Sem ela, "auditorias/"
+# tambem removeria auditoria_suporte/templates/auditorias/.
 .venv/
 venv/
 __pycache__/
 .pytest_cache/
-instance/
-auditorias/
-tests/
-iniciar.sh
+/instance/
+/auditorias/
+/tests/
+/iniciar.sh
