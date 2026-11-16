@@ -119,7 +119,7 @@ def criar_admin_por_ambiente(logger=None) -> Usuario | None:
     from sqlalchemy.exc import IntegrityError
 
     usuario = os.getenv("AUDITORIA_ADMIN_USUARIO", "").strip()
-    senha = os.getenv("AUDITORIA_ADMIN_SENHA", "")
+    senha = os.getenv("AUDITORIA_ADMIN_SENHA", "").strip()  # espacos colados por engano
     if not usuario or not senha:
         return None
 
