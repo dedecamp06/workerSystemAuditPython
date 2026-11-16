@@ -53,7 +53,7 @@
   <div class="card card-laranja">
     <span class="card-rotulo">Arquivos armazenados</span>
     <strong class="card-valor">{{ arquivos_armazenados }}</strong>
-    <span class="card-detalhe">em auditorias/{{ cliente.pasta or '-' }}</span>
+    <span class="card-detalhe">em {{ cliente.pasta or '-' }}</span>
   </div>
 </section>
 
@@ -66,7 +66,7 @@
       <dt>Contato</dt><dd>{{ cliente.contato or '-' }}</dd>
       <dt>E-mail</dt><dd>{{ cliente.email or '-' }}</dd>
       <dt>Nota minima</dt><dd>{{ cliente.nota_minima|numero(1) }}%</dd>
-      <dt>Pasta de resultados</dt><dd><code>auditorias/{{ cliente.pasta or '-' }}</code></dd>
+      <dt>Pasta de resultados</dt><dd><code>{{ cliente.pasta or '-' }}</code></dd>
       <dt>Cadastrado em</dt><dd>{{ cliente.criado_em|datahora_br }}</dd>
       <dt>Descricao</dt><dd>{{ cliente.descricao or '-' }}</dd>
     </dl>

@@ -4,8 +4,9 @@ from pathlib import Path
 from flask import Flask, g, render_template, request
 
 from .cli import registrar_comandos
-from .config import Config, obter_chave_secreta
+from .config import EM_SERVERLESS, Config, obter_chave_secreta
 from .extensions import db
+from .migracoes import atualizar_esquema
 from .models import SITUACOES, STATUS_CRITERIO  # noqa: F401 (registra os modelos)
 from .routes import BLUEPRINTS
 from .seguranca import (
@@ -36,9 +37,16 @@ def create_app(config_override: dict = None) -> Flask:
     if config_override:
         app.config.update(config_override)
 
+    uri = app.config["SQLALCHEMY_DATABASE_URI"]
+    if EM_SERVERLESS and uri.startswith("sqlite"):
+        raise RuntimeError(
+            "Ambiente serverless detectado sem banco de dados externo. Configure a "
+            "variavel DATABASE_URL com a URL do Postgres (ex.: Neon)."
+        )
+
     instance_dir = Path(app.config["INSTANCE_DIR"])
-    instance_dir.mkdir(parents=True, exist_ok=True)
-    Path(app.config["AUDIT_STORAGE_DIR"]).mkdir(parents=True, exist_ok=True)
+    if not EM_SERVERLESS:
+        instance_dir.mkdir(parents=True, exist_ok=True)
 
     if not app.config.get("SECRET_KEY"):
         app.config["SECRET_KEY"] = obter_chave_secreta(instance_dir)
@@ -55,6 +63,7 @@ def create_app(config_override: dict = None) -> Flask:
 
     with app.app_context():
         db.create_all()  # cria o banco e as tabelas sem apagar dados existentes
+        atualizar_esquema(app)
 
     return app
 

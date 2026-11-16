@@ -35,14 +35,11 @@ trabalhoAna/
 ├── requirements.txt
 ├── pytest.ini
 ├── README.md
-├── instance/                  # banco de dados e chave secreta (gerados na 1ª execução)
+├── DEPLOY_VERCEL.md            # como publicar na Vercel (Postgres no Neon)
+├── vercel.json
+├── instance/                  # banco local e chave secreta (gerados na 1ª execução)
 │   ├── auditoria.db
 │   └── secret_key
-├── auditorias/                # resultados gravados, organizados por cliente
-│   └── cliente_1_demo/
-│       └── atendimento_1/
-│           ├── resultado_auditoria.json
-│           └── resultado_auditoria.txt
 ├── auditoria_suporte/
 │   ├── __init__.py            # fábrica da aplicação, filtros, tratamento de erros
 │   ├── config.py              # configuração e chave secreta local
@@ -278,11 +275,13 @@ evidência confiável é marcada como inconclusiva.
 
 ## 9. Armazenamento dos resultados
 
-Ao concluir a auditoria, dois arquivos são gravados automaticamente:
+Ao concluir a auditoria, dois arquivos são gerados automaticamente e guardados no
+**banco de dados** (tabela `arquivos_auditoria`), organizados por cliente. Por isso o
+sistema funciona em hospedagens sem disco permanente, como a Vercel. Os arquivos são
+baixados pela tela do resultado:
 
 ```
-auditorias/
-└── cliente_<id>_<identificador>/
+cliente_<id>_<identificador>/
     └── atendimento_<id>/
         ├── resultado_auditoria.json      (1ª auditoria)
         ├── resultado_auditoria.txt
@@ -296,9 +295,14 @@ critérios utilizados com peso, status, pontuação, justificativa e evidências
 pesos e dos pontos, fórmula, pontuação final, situação geral e indicação de revisão
 humana. O TXT traz as mesmas informações em formato legível.
 
-A auditoria **só é confirmada no banco depois que os arquivos são gravados e relidos**.
-Se a gravação falhar, nada é salvo e o usuário recebe a mensagem de erro. O banco
-guarda o caminho, o tamanho e o hash SHA-256 de cada arquivo.
+A auditoria **só é confirmada no banco depois que os arquivos são gerados e
+conferidos**, na mesma transação. Se a gravação falhar, nada é salvo e o usuário recebe
+a mensagem de erro. O banco guarda o conteúdo, o caminho, o tamanho e o hash SHA-256
+de cada arquivo.
+
+> Versões anteriores gravavam os arquivos na pasta `auditorias/`. Ao iniciar, o
+> sistema cria a coluna nova no banco e copia esses arquivos antigos para ele
+> automaticamente.
 
 ---
 
@@ -333,6 +337,14 @@ critérios obrigatórios não atendidos, avaliações inconclusivas e não aplic
 gravação dos arquivos, falha de armazenamento, consulta e download dos resultados,
 preservação do histórico e renderização de todas as telas.
 
+Para rodar os mesmos testes contra um Postgres (como na Vercel), aponte a variável
+`TEST_DATABASE_URL` para um banco **vazio e descartável**. As tabelas são apagadas
+ao fim de cada teste:
+
+```bash
+TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/banco_teste python -m pytest
+```
+
 ---
 
 ## 12. Limitações conhecidas
@@ -345,4 +357,4 @@ preservação do histórico e renderização de todas as telas.
 - A exclusão de um cliente com vínculos apenas o desativa (preservando o histórico).
 - Não há exportação consolidada (planilha/PDF) dos resultados além dos arquivos
   JSON e TXT por auditoria.
-- A importação lê arquivos de até 5 MB por envio.
+- A importação lê arquivos de até 4 MB por envio (limite da Vercel).

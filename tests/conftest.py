@@ -1,9 +1,13 @@
 """Configuracao dos testes.
 
-Todos os testes usam um banco SQLite e um diretorio de auditorias temporarios
+Todos os testes usam um banco SQLite e diretorios temporarios
 (``tmp_path``), de modo que os dados reais do usuario nunca sao lidos,
 alterados ou apagados.
+
+Para rodar os testes contra um Postgres (como na Vercel), defina
+``TEST_DATABASE_URL``. As tabelas desse banco sao apagadas ao fim de cada teste.
 """
+import os
 import re
 import sys
 from datetime import date
@@ -14,6 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from auditoria_suporte import create_app  # noqa: E402
+from auditoria_suporte.config import normalizar_url_banco  # noqa: E402
 from auditoria_suporte.extensions import db  # noqa: E402
 from auditoria_suporte.services import (  # noqa: E402
     atendimento_service,
@@ -23,6 +28,8 @@ from auditoria_suporte.services import (  # noqa: E402
 )
 
 SENHA_TESTE = "senha-de-teste-123"
+
+URL_BANCO_TESTE = normalizar_url_banco(os.getenv("TEST_DATABASE_URL", ""))
 
 CONTEUDO_BOM = (
     "Atendente: Bom dia, central de suporte, meu nome e Maria. Em que posso ajudar? "
@@ -46,13 +53,16 @@ def app(tmp_path):
             "TESTING": True,
             "SECRET_KEY": "chave-exclusiva-de-teste",
             "INSTANCE_DIR": tmp_path / "instance",
-            "AUDIT_STORAGE_DIR": tmp_path / "auditorias",
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{(tmp_path / 'teste.db').as_posix()}",
+            "PASTA_LEGADA_AUDITORIAS": tmp_path / "auditorias",
+            "SQLALCHEMY_DATABASE_URI": URL_BANCO_TESTE
+            or f"sqlite:///{(tmp_path / 'teste.db').as_posix()}",
         }
     )
     yield aplicacao
     with aplicacao.app_context():
         db.session.remove()
+        if URL_BANCO_TESTE:
+            db.drop_all()
 
 
 @pytest.fixture

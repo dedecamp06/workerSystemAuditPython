@@ -4,16 +4,16 @@ from flask import (
     abort,
     flash,
     redirect,
+    make_response,
     render_template,
     request,
-    send_file,
     url_for,
 )
 
 from ..extensions import db
 from ..models import Atendimento, Auditoria, Cliente, SITUACOES
 from ..seguranca import login_required
-from ..services.armazenamento_service import ErroArmazenamento, caminho_absoluto
+from ..services.armazenamento_service import ErroArmazenamento, conteudo_do_arquivo
 
 bp = Blueprint("resultados", __name__, url_prefix="/resultados")
 
@@ -82,20 +82,20 @@ def baixar_arquivo(auditoria_id, tipo):
         abort(404)
 
     # O caminho vem do banco e e validado contra a pasta do cliente da auditoria,
-    # impedindo acesso a arquivos de outros clientes ou fora do diretorio base.
+    # impedindo acesso a arquivos de outros clientes.
     pasta_cliente = (auditoria.cliente.pasta or "") + "/"
     if not arquivo.caminho_relativo.startswith(pasta_cliente):
         abort(403)
 
     try:
-        caminho = caminho_absoluto(arquivo)
+        conteudo = conteudo_do_arquivo(arquivo)
     except ErroArmazenamento as erro:
         flash(str(erro), "erro")
         return redirect(url_for("resultados.detalhe", auditoria_id=auditoria.id))
 
-    return send_file(
-        caminho,
-        as_attachment=True,
-        download_name=caminho.name,
-        mimetype="application/json" if tipo == "json" else "text/plain",
-    )
+    nome = arquivo.caminho_relativo.rsplit("/", 1)[-1]
+    resposta = make_response(conteudo.encode("utf-8"))
+    resposta.mimetype = "application/json" if tipo == "json" else "text/plain"
+    resposta.charset = "utf-8"
+    resposta.headers["Content-Disposition"] = f'attachment; filename="{nome}"'
+    return resposta

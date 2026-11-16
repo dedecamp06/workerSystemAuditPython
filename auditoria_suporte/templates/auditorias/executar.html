@@ -120,7 +120,7 @@
     <a class="btn btn-contorno" href="{{ url_for('auditorias.selecionar') }}">Cancelar</a>
     <p class="texto-apagado">
       Ao registrar, os arquivos <code>JSON</code> e <code>TXT</code> sao gravados em
-      <code>auditorias/{{ atendimento.cliente.pasta }}/{{ atendimento.pasta }}/</code>.
+      <code>{{ atendimento.cliente.pasta }}/{{ atendimento.pasta }}/</code>.
       Se a gravacao falhar, nada e salvo no banco de dados.
     </p>
   </div>

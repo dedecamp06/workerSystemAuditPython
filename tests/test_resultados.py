@@ -77,20 +77,18 @@ def test_download_exige_autenticacao(client, auditorias):
     assert "/login" in resposta.headers["Location"]
 
 
-def test_arquivo_ausente_em_disco_informa_erro(app, autenticado, auditorias):
-    from pathlib import Path
-
+def test_arquivo_sem_conteudo_informa_erro(app, autenticado, auditorias):
     from auditoria_suporte.extensions import db
     from auditoria_suporte.models import Auditoria
 
     auditoria_id = auditorias["atendimento_bom"]
     with app.app_context():
         auditoria = db.session.get(Auditoria, auditoria_id)
-        relativo = auditoria.arquivo("json").caminho_relativo
-    Path(app.config["AUDIT_STORAGE_DIR"], relativo).unlink()
+        auditoria.arquivo("json").conteudo = None
+        db.session.commit()
 
     resposta = autenticado.get(f"/resultados/{auditoria_id}/arquivo/json", follow_redirects=True)
-    assert "nao encontrado em disco" in resposta.get_data(as_text=True)
+    assert "nao encontrado" in resposta.get_data(as_text=True)
 
 
 def test_dashboard_reflete_auditorias(autenticado, auditorias):

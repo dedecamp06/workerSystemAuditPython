@@ -135,7 +135,7 @@
           {% for arquivo in auditoria.arquivos %}
             <tr>
               <td><span class="badge badge-neutro">{{ arquivo.tipo|upper }}</span></td>
-              <td><code class="quebra">auditorias/{{ arquivo.caminho_relativo }}</code></td>
+              <td><code class="quebra">{{ arquivo.caminho_relativo }}</code></td>
               <td>{{ arquivo.tamanho_bytes }} bytes</td>
               <td class="direita">
                 <a class="btn btn-mini btn-contorno"

@@ -170,7 +170,7 @@ class ResultadoCriterio(db.Model):
 
 
 class ArquivoAuditoria(db.Model):
-    """Arquivo de resultado gravado em disco (JSON/TXT)."""
+    """Arquivo de resultado (JSON/TXT) guardado no banco de dados."""
 
     __tablename__ = "arquivos_auditoria"
 
@@ -185,6 +185,7 @@ class ArquivoAuditoria(db.Model):
     caminho_relativo = db.Column(db.String(400), nullable=False)
     tamanho_bytes = db.Column(db.Integer, nullable=False, default=0)
     sha256 = db.Column(db.String(64), nullable=True)
+    conteudo = db.Column(db.Text, nullable=True)
     gerado_em = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
     auditoria = db.relationship("Auditoria", back_populates="arquivos")

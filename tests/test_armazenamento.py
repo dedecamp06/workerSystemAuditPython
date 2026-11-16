@@ -1,8 +1,19 @@
-"""Testes do armazenamento automatico dos resultados em arquivos."""
+"""Testes do armazenamento automatico dos resultados (JSON/TXT no banco)."""
+import hashlib
 import json
-from pathlib import Path
 
 import pytest
+
+
+def _conteudo(app, caminho):
+    from auditoria_suporte.extensions import db
+    from auditoria_suporte.models import ArquivoAuditoria
+
+    with app.app_context():
+        arquivo = db.session.scalar(
+            db.select(ArquivoAuditoria).where(ArquivoAuditoria.caminho_relativo == caminho)
+        )
+        return arquivo.conteudo if arquivo else None
 
 
 @pytest.fixture
@@ -29,23 +40,22 @@ def auditoria_registrada(app, cenario):
 
 
 def test_arquivos_sao_gravados_na_pasta_do_cliente(app, auditoria_registrada):
-    base = Path(app.config["AUDIT_STORAGE_DIR"])
-    esperado = base / auditoria_registrada["pasta_cliente"] / auditoria_registrada["pasta_atendimento"]
+    prefixo = f"{auditoria_registrada['pasta_cliente']}/{auditoria_registrada['pasta_atendimento']}"
+    arquivos = auditoria_registrada["arquivos"]
 
-    assert esperado.is_dir()
-    assert (esperado / "resultado_auditoria.json").is_file()
-    assert (esperado / "resultado_auditoria.txt").is_file()
+    assert arquivos["json"] == f"{prefixo}/resultado_auditoria.json"
+    assert arquivos["txt"] == f"{prefixo}/resultado_auditoria.txt"
 
-    for tipo, relativo in auditoria_registrada["arquivos"].items():
-        caminho = base / relativo
-        assert caminho.is_file()
-        assert caminho.stat().st_size == auditoria_registrada["tamanhos"][tipo]
-        assert len(auditoria_registrada["sha"][tipo]) == 64
+    for tipo, relativo in arquivos.items():
+        conteudo = _conteudo(app, relativo)
+        assert conteudo
+        dados = conteudo.encode("utf-8")
+        assert len(dados) == auditoria_registrada["tamanhos"][tipo]
+        assert hashlib.sha256(dados).hexdigest() == auditoria_registrada["sha"][tipo]
 
 
 def test_conteudo_do_json_tem_todos_os_campos(app, auditoria_registrada):
-    base = Path(app.config["AUDIT_STORAGE_DIR"])
-    dados = json.loads((base / auditoria_registrada["arquivos"]["json"]).read_text(encoding="utf-8"))
+    dados = json.loads(_conteudo(app, auditoria_registrada["arquivos"]["json"]))
 
     assert dados["auditoria"]["id"] == auditoria_registrada["id"]
     assert dados["cliente"]["nome"] == "Cliente Alfa"
@@ -68,8 +78,7 @@ def test_conteudo_do_json_tem_todos_os_campos(app, auditoria_registrada):
 
 
 def test_conteudo_do_txt_e_legivel(app, auditoria_registrada):
-    base = Path(app.config["AUDIT_STORAGE_DIR"])
-    texto = (base / auditoria_registrada["arquivos"]["txt"]).read_text(encoding="utf-8")
+    texto = _conteudo(app, auditoria_registrada["arquivos"]["txt"])
     assert "RESULTADO DA AUDITORIA DE ATENDIMENTO" in texto
     assert "Cliente Alfa" in texto
     assert "SITUACAO GERAL            : APROVADO" in texto
@@ -88,10 +97,9 @@ def test_reauditoria_nao_sobrescreve_o_resultado_anterior(app, cenario, auditori
         nova = auditoria_service.registrar_auditoria(atendimento, usuario, avaliacoes)
         novos = {a.tipo: a.caminho_relativo for a in nova.arquivos}
 
-    base = Path(app.config["AUDIT_STORAGE_DIR"])
     assert novos["json"].endswith("resultado_auditoria_v2.json")
-    assert (base / novos["json"]).is_file()
-    assert (base / auditoria_registrada["arquivos"]["json"]).is_file()  # o anterior continua
+    assert _conteudo(app, novos["json"])
+    assert _conteudo(app, auditoria_registrada["arquivos"]["json"])  # o anterior continua
 
 
 def test_falha_de_armazenamento_nao_registra_a_auditoria(app, cenario, monkeypatch):
@@ -99,8 +107,8 @@ def test_falha_de_armazenamento_nao_registra_a_auditoria(app, cenario, monkeypat
     from auditoria_suporte.models import Atendimento, Auditoria, ResultadoCriterio, Usuario
     from auditoria_suporte.services import armazenamento_service, auditoria_service
 
-    def falhar(destino, conteudo):
-        raise OSError("disco indisponivel (simulado)")
+    def falhar(caminho, conteudo):
+        raise armazenamento_service.ErroArmazenamento("conferencia falhou (simulado)")
 
     monkeypatch.setattr(armazenamento_service, "_gravar_e_conferir", falhar)
 
@@ -118,13 +126,28 @@ def test_falha_de_armazenamento_nao_registra_a_auditoria(app, cenario, monkeypat
         assert db.session.scalar(db.select(db.func.count(ResultadoCriterio.id))) == 0
 
 
-def test_caminho_fora_do_diretorio_base_e_recusado(app):
-    from auditoria_suporte.services.armazenamento_service import ErroArmazenamento, caminho_seguro
+def test_arquivos_legados_em_disco_sao_copiados_para_o_banco(app, auditoria_registrada):
+    """Bancos da versao antiga: o conteudo estava so em disco e e importado no inicio."""
+    from auditoria_suporte import create_app
+    from auditoria_suporte.extensions import db
+    from auditoria_suporte.models import ArquivoAuditoria
 
+    relativo = auditoria_registrada["arquivos"]["json"]
+    original = _conteudo(app, relativo)
     with app.app_context():
-        for caminho in ("../fora.json", "../../etc/passwd", "cliente_1/../../fora.txt"):
-            with pytest.raises(ErroArmazenamento):
-                caminho_seguro(caminho)
+        db.session.execute(db.update(ArquivoAuditoria).values(conteudo=None))
+        db.session.commit()
+
+    pasta = app.config["PASTA_LEGADA_AUDITORIAS"]
+    destino = pasta / relativo
+    destino.parent.mkdir(parents=True)
+    destino.write_text(original, encoding="utf-8")
+
+    create_app({k: app.config[k] for k in (
+        "TESTING", "SECRET_KEY", "INSTANCE_DIR", "PASTA_LEGADA_AUDITORIAS", "SQLALCHEMY_DATABASE_URI"
+    )})
+
+    assert _conteudo(app, relativo) == original
 
 
 def test_resultados_de_clientes_diferentes_ficam_em_pastas_diferentes(app, cenario):

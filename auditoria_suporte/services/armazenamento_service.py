@@ -1,27 +1,25 @@
-"""Armazenamento automatico dos resultados em pastas por cliente.
+"""Armazenamento automatico dos resultados da auditoria.
 
-Estrutura gerada dentro de ``auditorias/``:
+Os arquivos JSON e TXT de cada auditoria ficam guardados no proprio banco de
+dados (tabela ``arquivos_auditoria``, coluna ``conteudo``). Assim o sistema
+funciona em hospedagens sem disco permanente (Vercel, Heroku etc.).
 
-    auditorias/
-        cliente_1_acme/
-            atendimento_1/
-                resultado_auditoria.json
-                resultado_auditoria.txt
-                resultado_auditoria_v2.json   (reauditoria)
-                resultado_auditoria_v2.txt
+Cada arquivo continua tendo um caminho logico organizado por cliente, usado
+como nome no download e para manter a separacao entre clientes:
 
-Nenhum arquivo e sobrescrito: cada execucao tem o seu proprio nome.
-A gravacao so e considerada concluida depois da releitura e da conferencia
-do tamanho do arquivo em disco.
+    cliente_1_acme/atendimento_1/resultado_auditoria.json
+    cliente_1_acme/atendimento_1/resultado_auditoria_v2.json   (reauditoria)
+
+Nenhum resultado e sobrescrito: cada execucao tem o seu proprio nome.
+A gravacao so e considerada concluida depois da conferencia do conteudo,
+do tamanho e do hash SHA-256.
 """
 import hashlib
 import json
 from datetime import datetime
-from pathlib import Path
 
-from flask import current_app
-
-from ..models.auditoria import NAO_APLICAVEL
+from ..extensions import db
+from ..models.auditoria import NAO_APLICAVEL, ArquivoAuditoria, Auditoria
 from .utilitarios import slug
 
 
@@ -29,48 +27,25 @@ class ErroArmazenamento(Exception):
     """Falha ao gravar ou localizar um arquivo de resultado."""
 
 
-def diretorio_base() -> Path:
-    base = Path(current_app.config["AUDIT_STORAGE_DIR"])
-    base.mkdir(parents=True, exist_ok=True)
-    return base.resolve()
-
-
 def nome_pasta_cliente(cliente) -> str:
-    """Nome de pasta unico e seguro para o cliente."""
+    """Nome de pasta logica unico e seguro para o cliente."""
     return f"cliente_{cliente.id}_{slug(cliente.codigo or cliente.nome)}"
 
 
-def garantir_pasta_cliente(cliente) -> Path:
+def garantir_pasta_cliente(cliente) -> str:
+    """Garante que o cliente tenha o nome da sua pasta logica definido."""
     if not cliente.pasta:
         cliente.pasta = nome_pasta_cliente(cliente)
-    caminho = caminho_seguro(cliente.pasta)
-    caminho.mkdir(parents=True, exist_ok=True)
-    return caminho
+    return cliente.pasta
 
 
-def caminho_seguro(relativo: str) -> Path:
-    """Resolve um caminho relativo garantindo que ele fique dentro da base.
-
-    Protege contra travessia de diretorio (``..``) e caminhos absolutos.
-    """
-    base = diretorio_base()
-    relativo = str(relativo or "").replace("\\", "/").strip("/")
-    if not relativo:
-        raise ErroArmazenamento("Caminho de arquivo nao informado.")
-    destino = (base / relativo).resolve()
-    if destino != base and base not in destino.parents:
-        raise ErroArmazenamento("Caminho de arquivo fora do diretorio de auditorias.")
-    return destino
-
-
-def caminho_absoluto(arquivo) -> Path:
-    """Caminho em disco de um ``ArquivoAuditoria`` ja registrado."""
-    destino = caminho_seguro(arquivo.caminho_relativo)
-    if not destino.is_file():
+def conteudo_do_arquivo(arquivo) -> str:
+    """Conteudo de um ``ArquivoAuditoria`` ja registrado."""
+    if not arquivo.conteudo:
         raise ErroArmazenamento(
-            f"Arquivo de resultado nao encontrado em disco: {arquivo.caminho_relativo}"
+            f"Conteudo do arquivo de resultado nao encontrado: {arquivo.caminho_relativo}"
         )
-    return destino
+    return arquivo.conteudo
 
 
 def montar_payload(auditoria) -> dict:
@@ -215,39 +190,48 @@ def montar_texto(payload: dict) -> str:
     return "\n".join(partes)
 
 
-def _nome_base(auditoria, pasta_atendimento: Path) -> str:
+def _caminho_existe(caminho: str) -> bool:
+    return (
+        db.session.scalar(
+            db.select(db.func.count(ArquivoAuditoria.id)).where(
+                ArquivoAuditoria.caminho_relativo == caminho
+            )
+        )
+        or 0
+    ) > 0
+
+
+def _nome_base(auditoria, prefixo: str) -> str:
     base = "resultado_auditoria" if auditoria.versao <= 1 else f"resultado_auditoria_v{auditoria.versao}"
     nome = base
     sufixo = 1
-    while (pasta_atendimento / f"{nome}.json").exists() or (
-        pasta_atendimento / f"{nome}.txt"
-    ).exists():
+    while _caminho_existe(f"{prefixo}/{nome}.json") or _caminho_existe(f"{prefixo}/{nome}.txt"):
         sufixo += 1
         nome = f"{base}_{sufixo}"
     return nome
 
 
-def _gravar_e_conferir(destino: Path, conteudo: str) -> dict:
-    destino.write_text(conteudo, encoding="utf-8")
-    if not destino.is_file():
-        raise ErroArmazenamento(f"O arquivo {destino.name} nao foi criado.")
-    gravado = destino.read_text(encoding="utf-8")
-    if gravado != conteudo:
-        raise ErroArmazenamento(f"O conteudo gravado em {destino.name} nao confere.")
-    tamanho = destino.stat().st_size
-    if tamanho <= 0:
-        raise ErroArmazenamento(f"O arquivo {destino.name} foi criado vazio.")
+def _gravar_e_conferir(caminho: str, conteudo: str) -> dict:
+    """Confere o conteudo gerado e devolve os metadados do arquivo."""
+    if not conteudo:
+        raise ErroArmazenamento(f"O arquivo {caminho} foi gerado vazio.")
+    dados = conteudo.encode("utf-8")
+    if dados.decode("utf-8") != conteudo:
+        raise ErroArmazenamento(f"O conteudo de {caminho} nao confere.")
     return {
-        "tamanho_bytes": tamanho,
-        "sha256": hashlib.sha256(conteudo.encode("utf-8")).hexdigest(),
+        "conteudo": conteudo,
+        "tamanho_bytes": len(dados),
+        "sha256": hashlib.sha256(dados).hexdigest(),
     }
 
 
 def gravar_resultado(auditoria) -> list:
-    """Grava os arquivos JSON e TXT da auditoria.
+    """Gera os arquivos JSON e TXT da auditoria.
 
-    Retorna uma lista de dicionarios com os dados de cada arquivo gravado.
-    Lanca ``ErroArmazenamento`` quando a gravacao nao pode ser confirmada.
+    Retorna uma lista de dicionarios prontos para criar ``ArquivoAuditoria``.
+    A persistencia acontece na mesma transacao da auditoria: se algo falhar,
+    nada e salvo. Lanca ``ErroArmazenamento`` quando a gravacao nao pode ser
+    confirmada.
     """
     cliente = auditoria.cliente
     atendimento = auditoria.atendimento
@@ -257,65 +241,40 @@ def gravar_resultado(auditoria) -> list:
             "Inconsistencia de vinculo: o atendimento nao pertence ao cliente da auditoria."
         )
 
-    try:
-        pasta_cliente = garantir_pasta_cliente(cliente)
-        pasta_atendimento = caminho_seguro(f"{cliente.pasta}/{atendimento.pasta}")
-        pasta_atendimento.mkdir(parents=True, exist_ok=True)
-    except ErroArmazenamento:
-        raise
-    except OSError as erro:
-        raise ErroArmazenamento(f"Nao foi possivel criar as pastas do cliente: {erro}")
-
+    prefixo = f"{garantir_pasta_cliente(cliente)}/{atendimento.pasta}"
     payload = montar_payload(auditoria)
-    nome_base = _nome_base(auditoria, pasta_atendimento)
+    nome_base = _nome_base(auditoria, prefixo)
 
     arquivos = []
-    gravados = []
     try:
         for tipo, conteudo in (
             ("json", json.dumps(payload, ensure_ascii=False, indent=2)),
             ("txt", montar_texto(payload)),
         ):
-            destino = pasta_atendimento / f"{nome_base}.{tipo}"
-            info = _gravar_e_conferir(destino, conteudo)
-            gravados.append(destino)
-            arquivos.append(
-                {
-                    "tipo": tipo,
-                    "caminho_relativo": (
-                        f"{cliente.pasta}/{atendimento.pasta}/{destino.name}"
-                    ),
-                    **info,
-                }
-            )
-    except (OSError, ErroArmazenamento) as erro:
-        for parcial in gravados:  # nao deixa resultado incompleto em disco
-            try:
-                parcial.unlink(missing_ok=True)
-            except OSError:
-                pass
+            caminho = f"{prefixo}/{nome_base}.{tipo}"
+            info = _gravar_e_conferir(caminho, conteudo)
+            arquivos.append({"tipo": tipo, "caminho_relativo": caminho, **info})
+    except (OSError, ValueError, ErroArmazenamento) as erro:
         raise ErroArmazenamento(f"Falha ao gravar o resultado da auditoria: {erro}")
 
-    _ = pasta_cliente  # pasta garantida acima
     return arquivos
 
 
 def contar_arquivos_cliente(cliente) -> int:
-    try:
-        pasta = caminho_seguro(cliente.pasta) if cliente.pasta else None
-    except ErroArmazenamento:
-        return 0
-    if not pasta or not pasta.is_dir():
-        return 0
-    return sum(1 for _ in pasta.rglob("*") if _.is_file())
+    return (
+        db.session.scalar(
+            db.select(db.func.count(ArquivoAuditoria.id))
+            .join(Auditoria, ArquivoAuditoria.auditoria_id == Auditoria.id)
+            .where(Auditoria.cliente_id == cliente.id)
+        )
+        or 0
+    )
 
 
 __all__ = [
     "ErroArmazenamento",
-    "caminho_absoluto",
-    "caminho_seguro",
+    "conteudo_do_arquivo",
     "contar_arquivos_cliente",
-    "diretorio_base",
     "garantir_pasta_cliente",
     "gravar_resultado",
     "montar_payload",
