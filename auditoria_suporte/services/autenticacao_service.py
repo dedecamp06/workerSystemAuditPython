@@ -99,3 +99,46 @@ def existe_administrador() -> bool:
     return bool(
         db.session.scalar(db.select(Usuario).where(Usuario.perfil == "admin", Usuario.ativo.is_(True)))
     )
+
+
+def criar_admin_por_ambiente(logger=None) -> Usuario | None:
+    """Cria o administrador inicial a partir de variaveis de ambiente.
+
+    Pensado para hospedagens sem terminal (Vercel). So age quando ainda nao
+    existe nenhum administrador ativo; depois disso as variaveis sao ignoradas,
+    entao trocar a senha pela tela "Perfil" nao e desfeito no proximo deploy.
+
+    Variaveis:
+        AUDITORIA_ADMIN_USUARIO  login (obrigatoria)
+        AUDITORIA_ADMIN_SENHA    senha, minimo de 8 caracteres (obrigatoria)
+        AUDITORIA_ADMIN_EMAIL    e-mail (opcional)
+        AUDITORIA_ADMIN_NOME     nome completo (opcional)
+    """
+    import os
+
+    from sqlalchemy.exc import IntegrityError
+
+    usuario = os.getenv("AUDITORIA_ADMIN_USUARIO", "").strip()
+    senha = os.getenv("AUDITORIA_ADMIN_SENHA", "")
+    if not usuario or not senha or existe_administrador():
+        return None
+
+    try:
+        novo = criar_usuario(
+            os.getenv("AUDITORIA_ADMIN_NOME", "").strip() or "Administrador",
+            usuario,
+            os.getenv("AUDITORIA_ADMIN_EMAIL", "").strip() or f"{usuario.lower()}@auditoria.local",
+            senha,
+            perfil="admin",
+        )
+    except ErroValidacao as erro:
+        if logger:
+            logger.error("Administrador inicial nao criado: %s", erro)
+        return None
+    except IntegrityError:  # outra instancia criou ao mesmo tempo
+        db.session.rollback()
+        return None
+
+    if logger:
+        logger.warning("Administrador inicial '%s' criado a partir das variaveis de ambiente.", novo.usuario)
+    return novo

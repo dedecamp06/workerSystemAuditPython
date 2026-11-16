@@ -83,3 +83,46 @@ def test_dashboard_mostra_indicadores_reais(autenticado, cenario):
     texto = autenticado.get("/").get_data(as_text=True)
     assert "Clientes cadastrados" in texto
     assert "Pendentes de auditoria" in texto
+
+
+def _criar_app(app):
+    from auditoria_suporte import create_app
+
+    return create_app({k: app.config[k] for k in (
+        "TESTING", "SECRET_KEY", "INSTANCE_DIR", "PASTA_LEGADA_AUDITORIAS", "SQLALCHEMY_DATABASE_URI"
+    )})
+
+
+def test_admin_inicial_criado_pelas_variaveis_de_ambiente(app, monkeypatch):
+    from auditoria_suporte.extensions import db
+    from auditoria_suporte.models import Usuario
+    from auditoria_suporte.services.autenticacao_service import autenticar
+
+    monkeypatch.setenv("AUDITORIA_ADMIN_USUARIO", "Ana")
+    monkeypatch.setenv("AUDITORIA_ADMIN_SENHA", "senha-forte-123")
+    _criar_app(app)
+
+    with app.app_context():
+        admin = db.session.scalar(db.select(Usuario))
+        assert admin.usuario == "ana"
+        assert admin.perfil == "admin"
+        assert autenticar("ana", "senha-forte-123") is not None
+
+    # com um administrador ja existente, as variaveis nao alteram nada
+    monkeypatch.setenv("AUDITORIA_ADMIN_USUARIO", "outro")
+    monkeypatch.setenv("AUDITORIA_ADMIN_SENHA", "outra-senha-456")
+    _criar_app(app)
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(Usuario.id))) == 1
+        assert autenticar("ana", "senha-forte-123") is not None
+
+
+def test_admin_inicial_com_senha_curta_nao_derruba_o_sistema(app, monkeypatch):
+    from auditoria_suporte.extensions import db
+    from auditoria_suporte.models import Usuario
+
+    monkeypatch.setenv("AUDITORIA_ADMIN_USUARIO", "ana")
+    monkeypatch.setenv("AUDITORIA_ADMIN_SENHA", "curta")
+    _criar_app(app)
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(Usuario.id))) == 0

@@ -1,4 +1,5 @@
 """Fabrica da aplicacao Flask do sistema de Auditoria Automatizada de Atendimentos."""
+from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, g, render_template, request
@@ -7,6 +8,7 @@ from .cli import registrar_comandos
 from .config import EM_SERVERLESS, Config, obter_chave_secreta
 from .extensions import db
 from .migracoes import atualizar_esquema
+from .services.autenticacao_service import criar_admin_por_ambiente
 from .models import SITUACOES, STATUS_CRITERIO  # noqa: F401 (registra os modelos)
 from .routes import BLUEPRINTS
 from .seguranca import (
@@ -64,6 +66,7 @@ def create_app(config_override: dict = None) -> Flask:
     with app.app_context():
         db.create_all()  # cria o banco e as tabelas sem apagar dados existentes
         atualizar_esquema(app)
+        criar_admin_por_ambiente(app.logger)
 
     return app
 
@@ -93,6 +96,8 @@ def _registrar_ganchos(app: Flask) -> None:
     def _variaveis_globais():
         return {
             "sistema_nome": app.config["SISTEMA_NOME"],
+            "sistema_slogan": app.config["SISTEMA_SLOGAN"],
+            "ano_atual": datetime.now().year,
             "usuario_logado": getattr(g, "usuario", None),
             "csrf_token": gerar_token_csrf,
             "situacoes": SITUACOES,

@@ -1,22 +1,47 @@
 {% extends "base.html" %}
+{% from "_marca.html" import icone %}
 {% from "_macros.html" import vazio %}
 {% block titulo %}Dashboard | {{ sistema_nome }}{% endblock %}
 {% block pagina_titulo %}Dashboard{% endblock %}
-{% block pagina_subtitulo %}Indicadores calculados a partir dos dados cadastrados{% endblock %}
+{% block pagina_subtitulo %}Visao geral da qualidade dos atendimentos{% endblock %}
 
 {% block conteudo %}
+{% set total = indicadores.total_auditorias %}
+{% set taxa = ((indicadores.aprovadas / total * 100)|round(0)|int) if total else 0 %}
+
+<section class="boas-vindas">
+  <div>
+    <span class="boas-vindas-selo">{{ icone('auditar') }} Central de qualidade</span>
+    <h2>Ola, {{ (usuario_logado.nome or usuario_logado.usuario).split(' ')[0] }}!</h2>
+    <p>
+      {% if indicadores.pendentes %}
+        Voce tem <strong>{{ indicadores.pendentes }} atendimento(s)</strong> aguardando auditoria.
+      {% else %}
+        Todos os atendimentos cadastrados ja foram auditados.
+      {% endif %}
+    </p>
+  </div>
+  <div class="boas-vindas-acoes">
+    <a class="btn btn-claro btn-grande" href="{{ url_for('auditorias.selecionar') }}">{{ icone('auditar') }} Auditar atendimentos</a>
+    <a class="btn btn-transparente" href="{{ url_for('atendimentos.importar') }}">{{ icone('importar') }} Importar CSV/TXT</a>
+  </div>
+</section>
+
 <section class="cards">
   <a class="card card-azul" href="{{ url_for('clientes.listar') }}">
+    <span class="card-icone">{{ icone('clientes') }}</span>
     <span class="card-rotulo">Clientes cadastrados</span>
     <strong class="card-valor">{{ indicadores.total_clientes }}</strong>
     <span class="card-detalhe">{{ indicadores.clientes_ativos }} ativo(s)</span>
   </a>
   <a class="card card-indigo" href="{{ url_for('atendimentos.listar') }}">
+    <span class="card-icone">{{ icone('atendimentos') }}</span>
     <span class="card-rotulo">Atendimentos cadastrados</span>
     <strong class="card-valor">{{ indicadores.total_atendimentos }}</strong>
     <span class="card-detalhe">{{ indicadores.total_criterios }} criterio(s) ativo(s)</span>
   </a>
   <a class="card card-verde" href="{{ url_for('resultados.listar') }}">
+    <span class="card-icone">{{ icone('aprovado') }}</span>
     <span class="card-rotulo">Auditorias realizadas</span>
     <strong class="card-valor">{{ indicadores.total_auditorias }}</strong>
     <span class="card-detalhe">
@@ -26,6 +51,7 @@
     </span>
   </a>
   <a class="card card-laranja" href="{{ url_for('auditorias.selecionar') }}">
+    <span class="card-icone">{{ icone('relogio') }}</span>
     <span class="card-rotulo">Pendentes de auditoria</span>
     <strong class="card-valor">{{ indicadores.pendentes }}</strong>
     <span class="card-detalhe">atendimentos sem auditoria</span>
@@ -35,28 +61,34 @@
 <section class="grade-2">
   <div class="cartao">
     <h2 class="cartao-titulo">Situacao das auditorias</h2>
-    <ul class="barras">
-      {% set total = indicadores.total_auditorias or 1 %}
-      <li>
-        <span class="barra-rotulo">Aprovadas <strong>{{ indicadores.aprovadas }}</strong></span>
-        <span class="barra"><i class="barra-aprovado" style="width: {{ (indicadores.aprovadas / total * 100)|round(1) }}%"></i></span>
-      </li>
-      <li>
-        <span class="barra-rotulo">Reprovadas <strong>{{ indicadores.reprovadas }}</strong></span>
-        <span class="barra"><i class="barra-reprovado" style="width: {{ (indicadores.reprovadas / total * 100)|round(1) }}%"></i></span>
-      </li>
-      <li>
-        <span class="barra-rotulo">Pendentes de revisao humana <strong>{{ indicadores.em_revisao }}</strong></span>
-        <span class="barra"><i class="barra-revisao" style="width: {{ (indicadores.em_revisao / total * 100)|round(1) }}%"></i></span>
-      </li>
-    </ul>
+    <div class="situacao">
+      <div class="anel" style="--p: {{ taxa }}" role="img" aria-label="Taxa de aprovacao de {{ taxa }}%">
+        <div class="anel-centro">
+          <strong>{{ taxa }}%</strong>
+          <small>aprovacao</small>
+        </div>
+      </div>
+      <ul class="barras">
+        {% set base = total or 1 %}
+        <li>
+          <span class="barra-rotulo"><span><i class="ponto ponto-aprovado"></i>Aprovadas</span> <strong>{{ indicadores.aprovadas }}</strong></span>
+          <span class="barra"><i class="barra-aprovado" style="width: {{ (indicadores.aprovadas / base * 100)|round(1) }}%"></i></span>
+        </li>
+        <li>
+          <span class="barra-rotulo"><span><i class="ponto ponto-reprovado"></i>Reprovadas</span> <strong>{{ indicadores.reprovadas }}</strong></span>
+          <span class="barra"><i class="barra-reprovado" style="width: {{ (indicadores.reprovadas / base * 100)|round(1) }}%"></i></span>
+        </li>
+        <li>
+          <span class="barra-rotulo"><span><i class="ponto ponto-revisao"></i>Pendentes de revisao humana</span> <strong>{{ indicadores.em_revisao }}</strong></span>
+          <span class="barra"><i class="barra-revisao" style="width: {{ (indicadores.em_revisao / base * 100)|round(1) }}%"></i></span>
+        </li>
+      </ul>
+    </div>
 
     <div class="atalhos">
-      <a class="btn btn-primario" href="{{ url_for('auditorias.selecionar') }}">Auditar atendimentos</a>
-      <a class="btn btn-contorno" href="{{ url_for('clientes.novo') }}">Novo cliente</a>
-      <a class="btn btn-contorno" href="{{ url_for('atendimentos.novo') }}">Novo atendimento</a>
-      <a class="btn btn-contorno" href="{{ url_for('criterios.novo') }}">Novo criterio</a>
-      <a class="btn btn-contorno" href="{{ url_for('atendimentos.importar') }}">Importar CSV/TXT</a>
+      <a class="btn btn-contorno" href="{{ url_for('clientes.novo') }}">{{ icone('mais') }} Novo cliente</a>
+      <a class="btn btn-contorno" href="{{ url_for('atendimentos.novo') }}">{{ icone('mais') }} Novo atendimento</a>
+      <a class="btn btn-contorno" href="{{ url_for('criterios.novo') }}">{{ icone('mais') }} Novo criterio</a>
     </div>
   </div>
 

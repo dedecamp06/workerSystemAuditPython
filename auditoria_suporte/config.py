@@ -90,4 +90,6 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 8  # 8 horas
 
-    SISTEMA_NOME = "Auditoria Automatizada de Atendimentos"
+    # Marca exibida nas telas. Pode ser trocada sem mexer no codigo.
+    SISTEMA_NOME = os.getenv("SISTEMA_NOME", "Auris")
+    SISTEMA_SLOGAN = os.getenv("SISTEMA_SLOGAN", "Auditoria Automatizada de Atendimentos")

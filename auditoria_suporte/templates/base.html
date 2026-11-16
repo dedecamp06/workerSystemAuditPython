@@ -1,57 +1,62 @@
+{% from "_marca.html" import logo, icone %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}{{ sistema_nome }}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 <div class="layout">
   <aside class="sidebar" id="sidebar">
-    <div class="marca">
-      <span class="marca-icone">AA</span>
+    <a class="marca" href="{{ url_for('dashboard.index') }}">
+      {{ logo(38, 'logo-menu') }}
       <div class="marca-texto">
-        <strong>Auditoria</strong>
-        <small>Atendimentos de suporte</small>
+        <strong>{{ sistema_nome }}</strong>
+        <small>{{ sistema_slogan }}</small>
       </div>
-    </div>
+    </a>
 
     <nav class="menu">
       <span class="menu-secao">Principal</span>
       <a href="{{ url_for('dashboard.index') }}"
          class="{{ 'ativo' if request.blueprint == 'dashboard' }}">
-        <span class="ico">&#9636;</span> Dashboard
+        {{ icone('painel') }} Dashboard
       </a>
 
       <span class="menu-secao">Cadastros</span>
       <a href="{{ url_for('clientes.listar') }}"
          class="{{ 'ativo' if request.blueprint == 'clientes' }}">
-        <span class="ico">&#9783;</span> Clientes
+        {{ icone('clientes') }} Clientes
       </a>
       <a href="{{ url_for('atendimentos.listar') }}"
          class="{{ 'ativo' if request.blueprint == 'atendimentos' }}">
-        <span class="ico">&#9993;</span> Atendimentos
+        {{ icone('atendimentos') }} Atendimentos
       </a>
       <a href="{{ url_for('criterios.listar') }}"
          class="{{ 'ativo' if request.blueprint == 'criterios' }}">
-        <span class="ico">&#9745;</span> Criterios
+        {{ icone('criterios') }} Criterios
       </a>
 
-      <span class="menu-secao">Auditoria</span>
+      <span class="menu-secao">Qualidade</span>
       <a href="{{ url_for('auditorias.selecionar') }}"
          class="{{ 'ativo' if request.blueprint == 'auditorias' }}">
-        <span class="ico">&#9881;</span> Executar auditoria
+        {{ icone('auditar') }} Executar auditoria
       </a>
       <a href="{{ url_for('resultados.listar') }}"
          class="{{ 'ativo' if request.blueprint == 'resultados' }}">
-        <span class="ico">&#9878;</span> Resultados
+        {{ icone('resultados') }} Resultados
       </a>
     </nav>
 
     <div class="sidebar-rodape">
-      <a href="{{ url_for('atendimentos.importar') }}" class="btn btn-contorno btn-bloco">
-        Importar atendimentos
+      <a href="{{ url_for('atendimentos.importar') }}" class="btn btn-sidebar btn-bloco">
+        {{ icone('importar') }} Importar atendimentos
       </a>
     </div>
   </aside>
@@ -65,14 +70,16 @@
       </div>
       <div class="topbar-usuario">
         {% if usuario_logado %}
-          <div class="usuario-info">
-            <strong>{{ usuario_logado.nome }}</strong>
-            <small>{{ usuario_logado.rotulo_perfil }}</small>
-          </div>
-          <a class="btn btn-mini btn-contorno" href="{{ url_for('auth.perfil') }}">Perfil</a>
+          <a class="usuario-chip" href="{{ url_for('auth.perfil') }}" title="Meu perfil">
+            <span class="avatar">{{ (usuario_logado.nome or usuario_logado.usuario)[:1]|upper }}</span>
+            <span class="usuario-info">
+              <strong>{{ usuario_logado.nome }}</strong>
+              <small>{{ usuario_logado.rotulo_perfil }}</small>
+            </span>
+          </a>
           <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <button class="btn btn-mini btn-perigo" type="submit">Sair</button>
+            <button class="btn btn-icone" type="submit" title="Sair" aria-label="Sair">{{ icone('sair') }}</button>
           </form>
         {% endif %}
       </div>
@@ -96,7 +103,8 @@
     </main>
 
     <footer class="rodape">
-      {{ sistema_nome }} &middot; dados persistidos localmente em SQLite
+      <span>&copy; {{ ano_atual }} {{ sistema_nome }} &middot; {{ sistema_slogan }}</span>
+      <span>{{ icone('cadeado') }} Ambiente seguro</span>
     </footer>
   </div>
 </div>

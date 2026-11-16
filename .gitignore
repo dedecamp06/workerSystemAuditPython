@@ -6,3 +6,5 @@ instance/*.db
 instance/secret_key
 /auditorias/
 .pytest_cache/
+.env
+.env.local

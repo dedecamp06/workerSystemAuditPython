@@ -28,7 +28,7 @@ git push
 1. Acesse <https://vercel.com/new> e importe o repositório `workerSystemAuditPython`.
 2. Em **Framework Preset**, deixe **Other**. O arquivo `vercel.json` já diz à
    Vercel para rodar o `app.py` com Python.
-3. **Ainda não clique em Deploy.** Antes, configure o banco e a chave (passos 3 e 4).
+3. **Ainda não clique em Deploy.** Antes, configure o banco, a chave e o administrador (passos 3 a 5).
    Se já tiver clicado, não tem problema: o primeiro deploy vai falhar com uma
    mensagem pedindo as variáveis, e você faz um *Redeploy* depois.
 
@@ -57,30 +57,32 @@ Em **Settings → Environment Variables**, adicione:
 
 Guarde essa chave. Se ela mudar, todos os usuários são deslogados (os dados não se perdem).
 
-## 5. Criar as tabelas e o administrador (no seu computador)
+## 5. Configurar o administrador inicial
 
-A Vercel não tem terminal, então o primeiro usuário é criado do seu computador,
-gravando direto no banco do Neon.
+Na mesma tela (**Settings → Environment Variables**), adicione:
 
-1. Copie a URL do banco: na Vercel, **Storage → (seu banco) → `.env.local`**, ou no
-   painel do Neon em **Connection string**. Ela começa com `postgresql://` ou `postgres://`.
-2. No terminal, dentro da pasta do projeto:
+| Nome | Valor |
+|---|---|
+| `AUDITORIA_ADMIN_USUARIO` | o login, ex.: `ana` |
+| `AUDITORIA_ADMIN_SENHA` | a senha (mínimo de 8 caracteres) |
+| `AUDITORIA_ADMIN_EMAIL` | opcional |
+| `AUDITORIA_ADMIN_NOME` | opcional, ex.: `Ana Souza` |
 
-```bash
-source .venv/bin/activate
-pip install -r requirements.txt
+Na primeira vez que o sistema iniciar, ele cria as tabelas e esse administrador
+sozinho. Isso só acontece **se ainda não existir nenhum administrador**. Depois, as
+variáveis são ignoradas: trocar a senha pela tela **Perfil** não é desfeito no
+próximo deploy. Se quiser, apague `AUDITORIA_ADMIN_SENHA` depois do primeiro login.
 
-export DATABASE_URL='postgresql://...cole-a-url-aqui...'
-flask --app app init-db
-flask --app app criar-admin
-# opcional, para ter dados de demonstração:
-flask --app app dados-exemplo
+O arquivo `.env.example` na raiz do projeto lista todas as variáveis.
 
-unset DATABASE_URL   # volta a usar o banco local
-```
-
-> **Atenção:** enquanto `DATABASE_URL` estiver definida nesse terminal, todos os
-> comandos `flask` agem no banco da **nuvem**. Use `unset DATABASE_URL` quando terminar.
+> **Alternativa pelo terminal:** com a URL do Neon, dá para criar usuários do seu
+> computador:
+>
+> ```bash
+> export DATABASE_URL='postgresql://...cole-a-url-aqui...'
+> flask --app app criar-admin
+> unset DATABASE_URL   # volta a usar o banco local
+> ```
 
 ## 6. Fazer o deploy
 
@@ -129,5 +131,7 @@ Os erros mais comuns são:
   Depois de adicionar a variável, faça *Redeploy*.
 - `Ambiente serverless detectado sem banco de dados externo`: falta a `DATABASE_URL`
   (passo 3). Faça *Redeploy* depois de conectar o banco.
-- O login não aceita a senha: o administrador foi criado no banco local e não no Neon.
-  Repita o passo 5 com a `DATABASE_URL` definida.
+- O login não aceita a senha: confira `AUDITORIA_ADMIN_USUARIO` e `AUDITORIA_ADMIN_SENHA`
+  e faça *Redeploy*. Se já existia um administrador no banco, as variáveis são
+  ignoradas. Nesse caso use o login antigo ou crie outro pelo terminal (passo 5).
+  Senhas com menos de 8 caracteres são recusadas e o motivo aparece nos **Logs**.

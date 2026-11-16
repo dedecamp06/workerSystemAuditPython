@@ -1,30 +1,52 @@
+{% from "_marca.html" import logo, icone %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar | {{ sistema_nome }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="tela-login">
   <div class="login-caixa">
     <div class="login-apresentacao">
-      <span class="marca-icone grande">AA</span>
-      <h1>{{ sistema_nome }}</h1>
+      <div class="login-marca">
+        {{ logo(52, 'logo-login') }}
+        <div>
+          <strong>{{ sistema_nome }}</strong>
+          <small>{{ sistema_slogan }}</small>
+        </div>
+      </div>
+
+      <h1>Qualidade de suporte medida com criterio.</h1>
       <p>
-        Controle de qualidade dos atendimentos de suporte: cadastro de clientes,
-        criterios por cliente, execucao de auditorias e armazenamento organizado
-        dos resultados.
+        Avalie cada atendimento com os criterios de cada cliente, acompanhe a
+        pontuacao da equipe e mantenha o historico das auditorias organizado.
       </p>
-      <ul class="login-lista">
-        <li>Criterios configuraveis por cliente</li>
-        <li>Pontuacao percentual ponderada</li>
-        <li>Resultados em JSON e TXT por cliente</li>
+
+      <ul class="login-recursos">
+        <li>
+          <span class="login-recurso-icone">{{ icone('criterios') }}</span>
+          <div><strong>Criterios por cliente</strong><small>Pesos e itens obrigatorios configuraveis</small></div>
+        </li>
+        <li>
+          <span class="login-recurso-icone">{{ icone('resultados') }}</span>
+          <div><strong>Pontuacao ponderada</strong><small>Nota percentual com justificativa e evidencias</small></div>
+        </li>
+        <li>
+          <span class="login-recurso-icone">{{ icone('auditar') }}</span>
+          <div><strong>Historico preservado</strong><small>Reauditorias geram novas versoes, sem sobrescrever</small></div>
+        </li>
       </ul>
     </div>
 
     <div class="login-formulario">
       <h2>Acessar o sistema</h2>
+      <p class="login-subtitulo">Entre com seu usuario ou e-mail corporativo.</p>
 
       {% with mensagens = get_flashed_messages(with_categories=true) %}
         {% for categoria, mensagem in mensagens %}
@@ -43,20 +65,27 @@
         <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 
         <label for="identificador">Usuario ou e-mail</label>
-        <input type="text" id="identificador" name="identificador" required
-               autocomplete="username" value="{{ identificador or '' }}" autofocus>
+        <div class="campo-icone">
+          {{ icone('usuario') }}
+          <input type="text" id="identificador" name="identificador" required
+                 autocomplete="username" value="{{ identificador or '' }}" autofocus>
+        </div>
 
         <label for="senha">Senha</label>
-        <input type="password" id="senha" name="senha" required autocomplete="current-password">
+        <div class="campo-icone">
+          {{ icone('cadeado') }}
+          <input type="password" id="senha" name="senha" required autocomplete="current-password">
+        </div>
 
-        <button class="btn btn-primario btn-bloco" type="submit">Entrar</button>
+        <button class="btn btn-primario btn-bloco btn-grande" type="submit">Entrar {{ icone('seta') }}</button>
       </form>
 
       <p class="login-dica">
-        Primeiro acesso? Crie o administrador pelo terminal:<br>
-        <code>flask --app app criar-admin</code>
+        {{ icone('cadeado') }} Acesso restrito a equipe de qualidade. Problemas para entrar?
+        Fale com o administrador do sistema.
       </p>
     </div>
   </div>
+  <p class="login-rodape">&copy; {{ ano_atual }} {{ sistema_nome }} &middot; {{ sistema_slogan }}</p>
 </body>
 </html>
