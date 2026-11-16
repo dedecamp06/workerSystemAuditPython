@@ -108,13 +108,19 @@ def test_admin_inicial_criado_pelas_variaveis_de_ambiente(app, monkeypatch):
         assert admin.perfil == "admin"
         assert autenticar("ana", "senha-forte-123") is not None
 
-    # com um administrador ja existente, as variaveis nao alteram nada
-    monkeypatch.setenv("AUDITORIA_ADMIN_USUARIO", "outro")
+    # se o login ja existe, a senha nao e alterada
     monkeypatch.setenv("AUDITORIA_ADMIN_SENHA", "outra-senha-456")
     _criar_app(app)
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(Usuario.id))) == 1
         assert autenticar("ana", "senha-forte-123") is not None
+
+    # um login novo e criado mesmo que ja exista outro administrador
+    monkeypatch.setenv("AUDITORIA_ADMIN_USUARIO", "outro")
+    _criar_app(app)
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(Usuario.id))) == 2
+        assert autenticar("outro", "outra-senha-456") is not None
 
 
 def test_admin_inicial_com_senha_curta_nao_derruba_o_sistema(app, monkeypatch):

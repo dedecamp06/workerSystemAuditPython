@@ -104,9 +104,9 @@ def existe_administrador() -> bool:
 def criar_admin_por_ambiente(logger=None) -> Usuario | None:
     """Cria o administrador inicial a partir de variaveis de ambiente.
 
-    Pensado para hospedagens sem terminal (Vercel). So age quando ainda nao
-    existe nenhum administrador ativo; depois disso as variaveis sao ignoradas,
-    entao trocar a senha pela tela "Perfil" nao e desfeito no proximo deploy.
+    Pensado para hospedagens sem terminal (Vercel). So cria o usuario quando
+    ainda nao existe ninguem com esse login ou e-mail. Se ja existir, nada e
+    alterado: trocar a senha pela tela "Perfil" nao e desfeito no proximo deploy.
 
     Variaveis:
         AUDITORIA_ADMIN_USUARIO  login (obrigatoria)
@@ -120,14 +120,25 @@ def criar_admin_por_ambiente(logger=None) -> Usuario | None:
 
     usuario = os.getenv("AUDITORIA_ADMIN_USUARIO", "").strip()
     senha = os.getenv("AUDITORIA_ADMIN_SENHA", "")
-    if not usuario or not senha or existe_administrador():
+    if not usuario or not senha:
+        return None
+
+    email = os.getenv("AUDITORIA_ADMIN_EMAIL", "").strip() or f"{usuario.lower()}@auditoria.local"
+    existente = db.session.scalar(
+        db.select(Usuario).where(
+            or_(func.lower(Usuario.usuario) == usuario.lower(), func.lower(Usuario.email) == email.lower())
+        )
+    )
+    if existente is not None:
+        if logger:
+            logger.info("Administrador inicial: o usuario '%s' ja existe, nada foi alterado.", existente.usuario)
         return None
 
     try:
         novo = criar_usuario(
             os.getenv("AUDITORIA_ADMIN_NOME", "").strip() or "Administrador",
             usuario,
-            os.getenv("AUDITORIA_ADMIN_EMAIL", "").strip() or f"{usuario.lower()}@auditoria.local",
+            email,
             senha,
             perfil="admin",
         )

@@ -69,9 +69,9 @@ Na mesma tela (**Settings → Environment Variables**), adicione:
 | `AUDITORIA_ADMIN_NOME` | opcional, ex.: `Ana Souza` |
 
 Na primeira vez que o sistema iniciar, ele cria as tabelas e esse administrador
-sozinho. Isso só acontece **se ainda não existir nenhum administrador**. Depois, as
-variáveis são ignoradas: trocar a senha pela tela **Perfil** não é desfeito no
-próximo deploy. Se quiser, apague `AUDITORIA_ADMIN_SENHA` depois do primeiro login.
+sozinho. Isso só acontece **se ainda não existir um usuário com esse login ou
+e-mail**. Se já existir, nada é alterado: trocar a senha pela tela **Perfil** não é
+desfeito no próximo deploy. Se quiser, apague `AUDITORIA_ADMIN_SENHA` depois do primeiro login.
 
 O arquivo `.env.example` na raiz do projeto lista todas as variáveis.
 
@@ -132,6 +132,6 @@ Os erros mais comuns são:
 - `Ambiente serverless detectado sem banco de dados externo`: falta a `DATABASE_URL`
   (passo 3). Faça *Redeploy* depois de conectar o banco.
 - O login não aceita a senha: confira `AUDITORIA_ADMIN_USUARIO` e `AUDITORIA_ADMIN_SENHA`
-  e faça *Redeploy*. Se já existia um administrador no banco, as variáveis são
-  ignoradas. Nesse caso use o login antigo ou crie outro pelo terminal (passo 5).
+  e faça *Redeploy*. Se já existia um usuário com esse login ou e-mail, a senha dele
+  não é alterada. Nesse caso use a senha antiga ou escolha outro login.
   Senhas com menos de 8 caracteres são recusadas e o motivo aparece nos **Logs**.
